@@ -1,0 +1,3 @@
+[workspace]
+members = [ "espers", "vespers", "espdump" ]
+resolver = "2"
