@@ -69,9 +69,10 @@ impl StringTable {
 
         let result: Result<String, Error> = match from_utf8(bytes) {
             Ok(s) => Ok(s.into()),
-            Err(_) => match WINDOWS_1252.decode(bytes) {
-                (s, _, _) => Ok(s.into()),
-            },
+            Err(_) => {
+                let (s, _, _) = WINDOWS_1252.decode(bytes);
+                Ok(s.into())
+            }
         };
         Ok(Some(result?))
     }

@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::error::Error;
 use crate::fields::{ModelTextures, SunAndMoons, EDID, FNAM, GNAM, MODL, MODT, TNAM, WLST};
 use binrw::{binrw, BinRead};
@@ -10,19 +10,15 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"CLMT")]
 pub struct CLMT {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Climate {
+    pub header: RecordHeader,
     pub edid: String,
     pub wlst: WLST,
     pub sun_texture: Option<String>,
@@ -42,7 +38,7 @@ impl TryFrom<CLMT> for Climate {
     type Error = Error;
 
     fn try_from(raw: CLMT) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
@@ -66,6 +62,7 @@ impl TryFrom<CLMT> for Climate {
         let sun_and_moons = TNAM::read(&mut cursor)?.try_into()?;
 
         Ok(Self {
+            header: raw.header,
             edid,
             wlst,
             sun_texture,

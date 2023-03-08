@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::common::FormID;
 use crate::error::Error;
 use crate::fields::{EDID, NAME, VMAD};
@@ -11,19 +11,15 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"REFR")]
 pub struct REFR {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObjectRef {
+    pub header: RecordHeader,
     pub edid: Option<String>,
     pub name: FormID,
 }
@@ -42,7 +38,7 @@ impl TryFrom<REFR> for ObjectRef {
     type Error = Error;
 
     fn try_from(raw: REFR) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)
@@ -52,6 +48,10 @@ impl TryFrom<REFR> for ObjectRef {
         let _vmad = VMAD::read(&mut cursor);
         let name = NAME::read(&mut cursor)?.try_into()?;
 
-        Ok(Self { edid, name })
+        Ok(Self {
+            header: raw.header,
+            edid,
+            name,
+        })
     }
 }

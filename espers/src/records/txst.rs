@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::error::Error;
 use crate::fields::{
     DecalData, ObjectBounds, DNAM, DODT, EDID, OBND, TX00, TX01, TX02, TX03, TX04, TX05, TX06, TX07,
@@ -33,19 +33,15 @@ impl TryFrom<DNAM> for TypeFlags {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"TXST")]
 pub struct TXST {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextureSet {
+    pub header: RecordHeader,
     pub edid: String,
     pub obnd: ObjectBounds,
     pub color_map: String,
@@ -70,7 +66,7 @@ impl TryFrom<TXST> for TextureSet {
     type Error = Error;
 
     fn try_from(raw: TXST) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
@@ -114,6 +110,7 @@ impl TryFrom<TXST> for TextureSet {
             .transpose()?;
 
         Ok(Self {
+            header: raw.header,
             edid,
             obnd,
             color_map,

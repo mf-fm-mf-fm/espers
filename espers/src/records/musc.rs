@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::error::Error;
 use crate::fields::EDID;
 use binrw::{binrw, BinRead};
@@ -10,29 +10,21 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"MUSC")]
 pub struct MUSC {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MusicType {
+    pub header: RecordHeader,
     pub edid: Option<String>,
 }
 
 impl fmt::Display for MusicType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "MusicType ({})",
-            self.edid.as_deref().unwrap_or("~")
-        )
+        write!(f, "MusicType ({})", self.edid.as_deref().unwrap_or("~"))
     }
 }
 
@@ -40,7 +32,7 @@ impl TryFrom<MUSC> for MusicType {
     type Error = Error;
 
     fn try_from(raw: MUSC) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)
@@ -48,6 +40,9 @@ impl TryFrom<MUSC> for MusicType {
             .map(TryInto::try_into)
             .transpose()?;
 
-        Ok(Self { edid })
+        Ok(Self {
+            header: raw.header,
+            edid,
+        })
     }
 }

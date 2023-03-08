@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::error::Error;
 use crate::fields::{DATA, EDID, FULL, ICON};
 use binrw::{binrw, BinRead};
@@ -11,14 +11,9 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"EYES")]
 pub struct EYES {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
@@ -44,6 +39,7 @@ impl TryFrom<DATA> for EyesFlags {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Eyes {
+    pub header: RecordHeader,
     pub edid: String,
     pub full_name: String,
     pub icon: String,
@@ -60,7 +56,7 @@ impl TryFrom<EYES> for Eyes {
     type Error = Error;
 
     fn try_from(raw: EYES) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
@@ -69,6 +65,7 @@ impl TryFrom<EYES> for Eyes {
         let flags = DATA::read(&mut cursor)?.try_into()?;
 
         Ok(Self {
+            header: raw.header,
             edid,
             full_name,
             icon,

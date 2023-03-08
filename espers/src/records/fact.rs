@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::common::FormID;
 use crate::error::Error;
 use crate::fields::{
@@ -13,19 +13,15 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"FACT")]
 pub struct FACT {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
+    pub header: RecordHeader,
     pub edid: String,
     pub full_name: Option<String>,
     pub xnams: Vec<XNAM>,
@@ -50,7 +46,7 @@ impl TryFrom<FACT> for Faction {
     type Error = Error;
 
     fn try_from(raw: FACT) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
@@ -96,6 +92,7 @@ impl TryFrom<FACT> for Faction {
         let vendor = VENV::read(&mut cursor).ok();
 
         Ok(Self {
+            header: raw.header,
             edid,
             full_name,
             xnams,

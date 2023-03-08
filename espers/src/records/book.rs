@@ -1,8 +1,8 @@
-use super::{get_cursor, Flags};
-use crate::common::{FormID, LocalizedString};
+use super::{get_cursor, Flags, RecordHeader};
+use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    ModelTextures, ObjectBounds, Script, CNAM, DATA, DESC, EDID, FULL, ICON, INAM, KSIZ, KWDA,
+    ModelTextures, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM, KSIZ, KWDA,
     MICO, MODL, MODT, OBND, VMAD, YNAM, ZNAM,
 };
 use crate::string_table::StringTables;
@@ -25,8 +25,8 @@ bitflags! {
 }
 
 #[binrw]
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookData {
     pub flags: BookFlags,
     pub kind: u8,
@@ -45,18 +45,12 @@ impl TryFrom<DATA> for BookData {
 }
 
 #[binrw]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[brw(little, magic = b"BOOK")]
 #[br(import(localized: bool))]
+#[brw(little, magic = b"BOOK")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BOOK {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 
     #[br(calc(localized))]
@@ -66,8 +60,9 @@ pub struct BOOK {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Book {
+    pub header: RecordHeader,
     pub edid: String,
-    pub scripts: Vec<Script>,
+    pub scripts: Option<ScriptList>,
     pub obnd: ObjectBounds,
     pub full_name: Option<LocalizedString>,
     pub model_filename: Option<String>,
@@ -83,6 +78,16 @@ pub struct Book {
     pub description: String,
 }
 
+impl Book {
+    pub fn localize(&mut self, string_table: &StringTables) {
+        if let Some(LocalizedString::Localized(l)) = self.full_name {
+            if let Ok(Some(s)) = string_table.get_string(&l) {
+                self.full_name = Some(LocalizedString::ZString(s));
+            }
+        }
+    }
+}
+
 impl fmt::Display for Book {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Book ({})", self.edid)
@@ -93,25 +98,20 @@ impl TryFrom<BOOK> for Book {
     type Error = Error;
 
     fn try_from(raw: BOOK) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
         let scripts = VMAD::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
-            .transpose()?
-            .unwrap_or_default();
+            .transpose()?;
         let obnd = OBND::read(&mut cursor)?.try_into()?;
         let full_name = match (FULL::read(&mut cursor), raw.localized) {
             (Ok(f), true) => Some(LocalizedString::Localized(f.try_into()?)),
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        // let full_name = FULL::read(&mut cursor)
-        //     .ok()
-        //     .map(TryInto::try_into)
-        //     .transpose()?;
         let model_filename = MODL::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -160,7 +160,10 @@ impl TryFrom<BOOK> for Book {
             .transpose()?;
         let description = CNAM::read(&mut cursor)?.try_into()?;
 
+        check_done_reading(&mut cursor)?;
+
         Ok(Self {
+            header: raw.header,
             edid,
             scripts,
             obnd,
@@ -177,15 +180,5 @@ impl TryFrom<BOOK> for Book {
             inventory_art,
             description,
         })
-    }
-}
-
-impl Book {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        if let Some(LocalizedString::Localized(l)) = self.full_name {
-            if let Ok(Some(s)) = string_table.get_string(&l) {
-                self.full_name = Some(LocalizedString::ZString(s.to_string()));
-            }
-        }
     }
 }

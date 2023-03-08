@@ -120,6 +120,7 @@ pub mod woop;
 pub mod wrld;
 pub mod wthr;
 
+pub use self::glob::{GlobalVariable, GLOB};
 pub use aact::{Action, AACT};
 pub use achr::{ActorRef, ACHR};
 pub use acti::{Activator, ACTI};
@@ -165,7 +166,6 @@ pub use flst::{FormList, FLST};
 pub use fstp::{Footstep, FSTP};
 pub use fsts::{FootstepSet, FSTS};
 pub use furn::{Furniture, FURN};
-pub use glob::{GlobalVariable, GLOB};
 pub use gmst::{GameSetting, GMST};
 pub use gras::{Grass, GRAS};
 pub use grup::{Group, GRUP};
@@ -232,7 +232,7 @@ pub use spel::{Spell, SPEL};
 pub use spgd::{ShaderParticleGeometry, SPGD};
 pub use stat::{Static, STAT};
 pub use tact::{TalkingActivator, TACT};
-pub use tes4::{Header, TES4Flags, TES4};
+pub use tes4::{Header, TES4};
 pub use tree::{Tree, TREE};
 pub use txst::{TextureSet, TXST};
 pub use vtyp::{VoiceType, VTYP};
@@ -263,6 +263,19 @@ bitflags! {
         const LIGHT_MASTER = 0x00000200;
         const COMPRESSED = 0x00040000;
     }
+}
+
+#[binrw]
+#[brw(little)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RecordHeader {
+    pub size: u32,
+    pub flags: Flags,
+    pub form_id: u32,
+    pub timestamp: u16,
+    pub version_control: u16,
+    pub internal_version: u16,
+    pub unknown: u16,
 }
 
 #[binrw]
@@ -305,7 +318,7 @@ pub enum RawRecord {
     DUAL(DUAL),
     ECZN(ECZN),
     EFSH(EFSH),
-    ENCH(ENCH),
+    ENCH(#[br(args(localized))] ENCH),
     EQUP(EQUP),
     EXPL(EXPL),
     EYES(EYES),
@@ -344,7 +357,7 @@ pub enum RawRecord {
     MATO(MATO),
     MATT(MATT),
     MESG(MESG),
-    MGEF(MGEF),
+    MGEF(#[br(args(localized))] MGEF),
     MISC(MISC),
     MOVT(MOVT),
     MSTT(MSTT),

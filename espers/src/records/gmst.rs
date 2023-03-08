@@ -1,4 +1,4 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
 use crate::error::Error;
 use crate::fields::{DATA, EDID};
 use binrw::{binrw, BinRead, NullString};
@@ -10,14 +10,9 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"GMST")]
 pub struct GMST {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
@@ -31,6 +26,7 @@ pub enum Value {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameSetting {
+    pub header: RecordHeader,
     pub edid: String,
     pub value: Value,
 }
@@ -45,7 +41,7 @@ impl TryFrom<GMST> for GameSetting {
     type Error = Error;
 
     fn try_from(raw: GMST) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid: String = EDID::read(&mut cursor)?.try_into()?;
@@ -59,6 +55,10 @@ impl TryFrom<GMST> for GameSetting {
             _ => Value::Unknown(BinRead::read_le(&mut data_cursor)?),
         };
 
-        Ok(Self { edid, value })
+        Ok(Self {
+            header: raw.header,
+            edid,
+            value,
+        })
     }
 }

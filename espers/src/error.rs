@@ -18,4 +18,7 @@ pub enum Error {
 
     #[error("String EOF")]
     StringEOF,
+
+    #[error("Extra bytes after parsing record")]
+    ExtraBytes(Vec<u8>),
 }

@@ -1,3 +1,4 @@
+use crate::common::FormID;
 use crate::error::Error;
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -15,13 +16,22 @@ pub struct VMAD {
 #[binrw]
 #[brw(little)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PropertyType {
+pub enum RawPropertyType {
     #[brw(magic = 1u8)]
-    Type1 { status: u8, data: [u32; 2] },
+    Object { status: u8, data: [u32; 2] },
+    #[brw(magic = 2u8)]
+    String {
+        status: u8,
+        size: u16,
+        #[br(count = size)]
+        data: Vec<u8>,
+    },
     #[brw(magic = 3u8)]
-    Type2 { status: u8, data: u32 },
+    Int { status: u8, data: i32 },
+    #[brw(magic = 4u8)]
+    Float { status: u8, data: f32 },
     #[brw(magic = 5u8)]
-    Type3 { status: u8, data: u8 },
+    Bool { status: u8, data: u8 },
 }
 
 #[binrw]
@@ -32,7 +42,7 @@ pub struct RawProperty {
     #[br(count = name_size)]
     pub name: Vec<u8>,
 
-    pub kind: PropertyType,
+    pub kind: RawPropertyType,
 }
 
 #[binrw]
@@ -72,9 +82,41 @@ impl TryFrom<VMAD> for RawScriptList {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Property {
-    pub name: String,
-    pub kind: PropertyType,
+pub enum Property {
+    ObjectV1 {
+        name: String,
+        status: u8,
+        form_id: FormID,
+        alias: i16,
+        unused: u16,
+    },
+    ObjectV2 {
+        name: String,
+        status: u8,
+        unused: u16,
+        alias: i16,
+        form_id: FormID,
+    },
+    String {
+        name: String,
+        status: u8,
+        value: String,
+    },
+    Int {
+        name: String,
+        status: u8,
+        value: i32,
+    },
+    Float {
+        name: String,
+        status: u8,
+        value: f32,
+    },
+    Bool {
+        name: String,
+        status: u8,
+        value: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,31 +126,78 @@ pub struct Script {
     pub properties: Vec<Property>,
 }
 
-impl TryInto<Script> for RawScript {
-    type Error = Error;
-
-    fn try_into(self) -> Result<Script, Self::Error> {
-        Ok(Script {
-            name: String::from_utf8_lossy(&self.name).into(),
-            status: self.status,
-            properties: self
-                .properties
-                .into_iter()
-                .map(|p| Property {
-                    name: String::from_utf8_lossy(&p.name).into(),
-                    kind: p.kind,
-                })
-                .collect(),
-        })
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptList {
+    pub version: u16,
+    pub object_format: u16,
+    pub scripts: Vec<Script>,
 }
 
-impl TryInto<Vec<Script>> for VMAD {
+impl TryInto<ScriptList> for VMAD {
     type Error = Error;
 
-    fn try_into(self) -> Result<Vec<Script>, Self::Error> {
+    fn try_into(self) -> Result<ScriptList, Self::Error> {
         let mut cursor = Cursor::new(&self.data);
-        let scripts = RawScriptList::read(&mut cursor)?;
-        scripts.scripts.into_iter().map(TryInto::try_into).collect()
+        let raw_scripts = RawScriptList::read(&mut cursor)?;
+        let scripts: Result<_, _> = raw_scripts
+            .scripts
+            .into_iter()
+            .map(|s| -> Result<Script, Error> {
+                Ok(Script {
+                    name: String::from_utf8_lossy(&s.name).into(),
+                    status: s.status,
+                    properties: s
+                        .properties
+                        .into_iter()
+                        .map(|p| match (p.kind, raw_scripts.object_format) {
+                            (RawPropertyType::Object { status, data }, 1) => Property::ObjectV1 {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                form_id: FormID(data[0]),
+                                alias: (data[1] & 0xFFFF) as i16,
+                                unused: (data[1] >> 0x10) as u16,
+                            },
+                            (RawPropertyType::Object { status, data }, 2) => Property::ObjectV2 {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                unused: (data[0] & 0xFFFF) as u16,
+                                alias: (data[0] >> 0x10) as i16,
+                                form_id: FormID(data[1]),
+                            },
+                            (RawPropertyType::Object { .. }, _) => {
+                                unreachable!("Invalid Object Format Version")
+                            }
+                            (RawPropertyType::String { status, data, .. }, _) => Property::String {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                value: String::from_utf8_lossy(&data).into(),
+                            },
+                            (RawPropertyType::Int { status, data }, _) => Property::Int {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                value: data,
+                            },
+                            (RawPropertyType::Float { status, data }, _) => Property::Float {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                value: data,
+                            },
+                            (RawPropertyType::Bool { status, data }, _) => Property::Bool {
+                                name: String::from_utf8_lossy(&p.name).into(),
+                                status,
+                                value: data == 1,
+                            },
+                        })
+                        .collect(),
+                })
+            })
+            .collect();
+
+        Ok(ScriptList {
+            version: raw_scripts.version,
+            object_format: raw_scripts.object_format,
+
+            scripts: scripts?,
+        })
     }
 }

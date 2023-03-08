@@ -1,8 +1,8 @@
-use super::{get_cursor, Flags};
+use super::{get_cursor, Flags, RecordHeader};
+use crate::common::check_done_reading;
 use crate::error::Error;
 use crate::fields::{CNAM, EDID};
-use binrw::binrw;
-use binrw::BinRead;
+use binrw::{binrw, BinRead, BinWrite};
 use rgb::RGBA8;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -12,19 +12,15 @@ use std::io::Cursor;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"AACT")]
 pub struct AACT {
-    pub size: u32,
-    pub flags: Flags,
-    pub form_id: u32,
-    pub timestamp: u16,
-    pub version_control: u16,
-    pub internal_version: u16,
-    pub unknown: u16,
-    #[br(count = size)]
+    pub header: RecordHeader,
+
+    #[br(count = header.size)]
     pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Action {
+    pub header: RecordHeader,
     pub edid: String,
     pub color: Option<RGBA8>,
 }
@@ -39,7 +35,7 @@ impl TryFrom<AACT> for Action {
     type Error = Error;
 
     fn try_from(raw: AACT) -> Result<Self, Self::Error> {
-        let data = get_cursor(&raw.data, raw.flags.contains(Flags::COMPRESSED));
+        let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
@@ -48,6 +44,25 @@ impl TryFrom<AACT> for Action {
             .map(TryInto::try_into)
             .transpose()?;
 
-        Ok(Self { edid, color })
+        check_done_reading(&mut cursor)?;
+        Ok(Self {
+            header: raw.header,
+            edid,
+            color,
+        })
+    }
+}
+
+impl TryFrom<Action> for AACT {
+    type Error = Error;
+
+    fn try_from(obj: Action) -> Result<Self, Self::Error> {
+        let mut data = Cursor::new(Vec::new());
+        EDID::try_from(obj.edid)?.write(&mut data)?;
+
+        Ok(Self {
+            header: obj.header,
+            data: data.into_inner(),
+        })
     }
 }
