@@ -1,21 +1,41 @@
+use crate::widgets::ToIced;
 use crate::Args;
 use espers::plugin::Plugin;
 use espers::records::{Group, Record};
 use iced::{
-    executor,
-    widget::{button, container, scrollable, scrollable::Properties, text, Column, Row},
-    Alignment, Application, Command, Element, Length, Theme,
+    alignment::Horizontal,
+    event, executor, keyboard,
+    keyboard::KeyCode,
+    subscription,
+    theme::Container as ContainerTheme,
+    widget::{button, column, container, row, scrollable, scrollable::Properties, text, Column},
+    Alignment, Application, Background, Color, Command, Element, Event, Length, Subscription,
+    Theme,
 };
 use once_cell::sync::Lazy;
-use ron::ser::to_string_pretty;
 
 static SCROLLABLE_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
+
+pub struct ContainerSS;
+
+impl container::StyleSheet for ContainerSS {
+    type Style = Theme;
+
+    fn appearance(&self, style: &Self::Style) -> container::Appearance {
+        container::Appearance {
+            background: Some(Background::Color(Color::new(0.5, 0.5, 0.5, 0.3))),
+            ..style.appearance(&ContainerTheme::Box)
+        }
+    }
+}
 
 pub struct VespersApp {
     current_scroll_offset: scrollable::RelativeOffset,
     plugin: Plugin,
     args: Args,
     state: Vec<usize>,
+    theme: Theme,
+    debug_mode: bool,
 }
 
 impl VespersApp {
@@ -56,6 +76,8 @@ pub enum Message {
     Scrolled(scrollable::RelativeOffset),
     Click(usize),
     Back,
+    ToggleTheme,
+    ToggleDebugMode,
 }
 
 impl Application for VespersApp {
@@ -71,6 +93,8 @@ impl Application for VespersApp {
                 plugin: flags.0,
                 args: flags.1,
                 state: Vec::new(),
+                theme: Theme::Dark,
+                debug_mode: false,
             },
             Command::none(),
         )
@@ -103,6 +127,18 @@ impl Application for VespersApp {
                 self.state.pop();
                 Command::none()
             }
+            Message::ToggleTheme => {
+                self.theme = match self.theme {
+                    Theme::Light => Theme::Dark,
+                    Theme::Dark => Theme::Light,
+                    _ => Theme::Dark,
+                };
+                Command::none()
+            }
+            Message::ToggleDebugMode => {
+                self.debug_mode = !self.debug_mode;
+                Command::none()
+            }
         }
     }
 
@@ -112,71 +148,121 @@ impl Application for VespersApp {
             None => &self.plugin.records,
         };
 
-        let items = selected
+        let items: Vec<Element<Message>> = selected
             .iter()
             .enumerate()
             .map(|(i, x)| {
-                button(text(format!("{}", x)))
-                    .on_press(Message::Click(i))
-                    .width(Length::Fill)
-                    .into()
+                button(text(if let Record::Group(g) = x {
+                    format!(
+                        "Group - {} items ({})",
+                        g.records.len(),
+                        g.magics().join(", ")
+                    )
+                } else {
+                    format!("{}", x)
+                }))
+                .on_press(Message::Click(i))
+                .width(Length::Fill)
+                .into()
             })
             .collect();
 
-        let displayed = text(match &self.selected() {
-            Some(Record::Group(_)) | None => "Select an item".into(),
-            Some(r) => to_string_pretty(r, Default::default()).unwrap(),
-        })
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into();
-
-        container(Row::with_children(vec![
-            Column::with_children(vec![
-                Row::with_children(vec![
-                    button(text("Back")).on_press(Message::Back).into(),
-                    text(&self.args.path).into(),
-                ])
-                .spacing(40)
-                .align_items(Alignment::Start)
+        let displayed: Element<Message> = match self.selected() {
+            Some(ref rec) => rec.to_iced(&self.plugin).into(),
+            None => text("Select an item")
                 .width(Length::Fill)
+                .horizontal_alignment(Horizontal::Center)
                 .into(),
-                scrollable(
-                    Column::with_children(items)
-                        .width(Length::Fill)
-                        .align_items(Alignment::Start)
-                        .spacing(8),
-                )
-                .height(Length::Fill)
-                .vertical_scroll(Properties::new().scroller_width(10))
-                .id(SCROLLABLE_ID.clone())
-                .on_scroll(Message::Scrolled)
-                .into(),
-            ])
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_items(Alignment::Center)
-            .spacing(10)
-            .into(),
+        };
+
+        let title_row = row![
+            button(text("Back")).on_press(Message::Back),
+            text(&self.args.path).width(Length::Fill),
+            text(&format!(
+                "Author: {}",
+                self.plugin.header.author.as_deref().unwrap_or("<not set>")
+            ))
+            .width(Length::Fill),
+            text(&format!(
+                "Description: {}",
+                self.plugin
+                    .header
+                    .description
+                    .as_deref()
+                    .unwrap_or("<not set>")
+            ))
+            .width(Length::Fill),
+        ]
+        .spacing(20)
+        .padding(10)
+        .align_items(Alignment::Start)
+        .width(Length::Fill);
+
+        let display_row = row![
             scrollable(
-                Column::with_children(vec![displayed])
+                Column::with_children(items)
                     .width(Length::Fill)
-                    .align_items(Alignment::Center)
-                    .spacing(10),
+                    .align_items(Alignment::Start)
+                    .spacing(8),
             )
             .height(Length::Fill)
             .vertical_scroll(Properties::new().scroller_width(10))
-            .into(),
-        ]))
+            .id(SCROLLABLE_ID.clone())
+            .on_scroll(Message::Scrolled),
+            scrollable(
+                column![displayed]
+                    .width(Length::Fill)
+                    .align_items(Alignment::Start),
+            )
+            .height(Length::Fill)
+            .vertical_scroll(Properties::new().scroller_width(10)),
+        ]
+        .spacing(20);
+
+        let ui: Element<Message> = container(
+            Column::with_children(vec![
+                container(title_row)
+                    .style(ContainerTheme::Custom(Box::new(ContainerSS)))
+                    .into(),
+                display_row.into(),
+            ])
+            .spacing(20),
+        )
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(10)
         .center_x()
         .center_y()
-        .into()
+        .into();
+
+        if self.debug_mode {
+            ui.explain(self.theme.palette().primary)
+        } else {
+            ui
+        }
     }
 
     fn theme(&self) -> Self::Theme {
-        Theme::Dark
+        self.theme.clone()
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        subscription::events_with(|event, status| {
+            if let event::Status::Captured = status {
+                return None;
+            }
+
+            match event {
+                Event::Keyboard(keyboard::Event::KeyPressed {
+                    key_code: KeyCode::T,
+                    ..
+                }) => Some(Message::ToggleTheme),
+                Event::Keyboard(keyboard::Event::KeyPressed {
+                    key_code: KeyCode::D,
+                    ..
+                }) => Some(Message::ToggleDebugMode),
+                _ => None,
+            }
+        })
     }
 }

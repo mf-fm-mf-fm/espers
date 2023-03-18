@@ -19,6 +19,12 @@ pub enum Error {
     #[error("String EOF")]
     StringEOF,
 
-    #[error("Extra bytes after parsing record")]
+    #[error("Extra bytes after parsing record ({:?})", _0)]
     ExtraBytes(Vec<u8>),
+
+    #[error("Duplicate field encountered ({})", _0)]
+    DuplicateField(String),
+
+    #[error("Unknown {} record version: {}", _0, _1)]
+    UnknownVersion(String, u16),
 }

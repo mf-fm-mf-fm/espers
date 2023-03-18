@@ -1,6 +1,6 @@
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
-use binrw::{binrw, helpers::until_eof, BinWrite, Endian};
+use binrw::{binrw, helpers::until_eof, BinRead, BinWrite, Endian, NullString};
 use serde_derive::{Deserialize, Serialize};
 use std::io::Cursor;
 
@@ -37,5 +37,27 @@ impl TryFrom<Vec<FormID>> for ONAM {
             size: data.len() as u16,
             data,
         })
+    }
+}
+
+impl TryFrom<ONAM> for String {
+    type Error = Error;
+
+    fn try_from(raw: ONAM) -> Result<String, Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<ONAM> for u32 {
+    type Error = Error;
+
+    fn try_from(raw: ONAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

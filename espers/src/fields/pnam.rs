@@ -1,5 +1,6 @@
 use crate::error::Error;
 use binrw::{binrw, BinRead};
+use rgb::RGBA8;
 use serde_derive::{Deserialize, Serialize};
 use std::io::Cursor;
 
@@ -17,5 +18,14 @@ impl TryInto<f32> for PNAM {
 
     fn try_into(self) -> Result<f32, Error> {
         Ok(f32::read_le(&mut Cursor::new(&self.data))?)
+    }
+}
+
+impl TryInto<RGBA8> for PNAM {
+    type Error = Error;
+
+    fn try_into(self) -> Result<RGBA8, Self::Error> {
+        let parsed: [u8; 4] = BinRead::read(&mut Cursor::new(&self.data))?;
+        Ok(parsed.into())
     }
 }

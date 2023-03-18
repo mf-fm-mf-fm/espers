@@ -5,7 +5,7 @@ use crate::fields::{
     ModelTextures, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM, KSIZ, KWDA,
     MICO, MODL, MODT, OBND, VMAD, YNAM, ZNAM,
 };
-use crate::string_table::StringTables;
+use crate::string_table::StringTable;
 use binrw::{binrw, BinRead};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -40,7 +40,10 @@ impl TryFrom<DATA> for BookData {
     type Error = Error;
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
-        Ok(Self::read(&mut Cursor::new(&raw.data))?)
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -63,11 +66,11 @@ pub struct Book {
     pub header: RecordHeader,
     pub edid: String,
     pub scripts: Option<ScriptList>,
-    pub obnd: ObjectBounds,
+    pub bounds: ObjectBounds,
     pub full_name: Option<LocalizedString>,
     pub model_filename: Option<String>,
     pub model_textures: Option<ModelTextures>,
-    pub text: String,
+    pub text: LocalizedString,
     pub icon: Option<String>,
     pub message_icon: Option<String>,
     pub pickup_sound: Option<FormID>,
@@ -75,14 +78,26 @@ pub struct Book {
     pub keywords: Vec<FormID>,
     pub data: BookData,
     pub inventory_art: Option<FormID>,
-    pub description: String,
+    pub description: LocalizedString,
 }
 
 impl Book {
-    pub fn localize(&mut self, string_table: &StringTables) {
+    pub fn localize(&mut self, string_table: &StringTable) {
         if let Some(LocalizedString::Localized(l)) = self.full_name {
-            if let Ok(Some(s)) = string_table.get_string(&l) {
-                self.full_name = Some(LocalizedString::ZString(s));
+            if let Some(s) = string_table.get_string(&l) {
+                self.full_name = Some(LocalizedString::ZString(s.clone()));
+            }
+        }
+
+        if let LocalizedString::Localized(l) = self.text {
+            if let Some(s) = string_table.get_string(&l) {
+                self.text = LocalizedString::ZString(s.clone());
+            }
+        }
+
+        if let LocalizedString::Localized(l) = self.description {
+            if let Some(s) = string_table.get_string(&l) {
+                self.description = LocalizedString::ZString(s.clone());
             }
         }
     }
@@ -106,7 +121,7 @@ impl TryFrom<BOOK> for Book {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let obnd = OBND::read(&mut cursor)?.try_into()?;
+        let bounds = OBND::read(&mut cursor)?.try_into()?;
         let full_name = match (FULL::read(&mut cursor), raw.localized) {
             (Ok(f), true) => Some(LocalizedString::Localized(f.try_into()?)),
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
@@ -120,7 +135,11 @@ impl TryFrom<BOOK> for Book {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let text = DESC::read(&mut cursor)?.try_into()?;
+        let text = if raw.localized {
+            LocalizedString::Localized(DESC::read(&mut cursor)?.try_into()?)
+        } else {
+            LocalizedString::ZString(DESC::read(&mut cursor)?.try_into()?)
+        };
         let icon = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -158,7 +177,12 @@ impl TryFrom<BOOK> for Book {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let description = CNAM::read(&mut cursor)?.try_into()?;
+
+        let description = if raw.localized {
+            LocalizedString::Localized(CNAM::read(&mut cursor)?.try_into()?)
+        } else {
+            LocalizedString::ZString(CNAM::read(&mut cursor)?.try_into()?)
+        };
 
         check_done_reading(&mut cursor)?;
 
@@ -166,7 +190,7 @@ impl TryFrom<BOOK> for Book {
             header: raw.header,
             edid,
             scripts,
-            obnd,
+            bounds,
             full_name,
             model_filename,
             model_textures,

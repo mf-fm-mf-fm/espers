@@ -1,3 +1,4 @@
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -12,6 +13,17 @@ pub struct TNAM {
     pub data: Vec<u8>,
 }
 
+impl TryFrom<TNAM> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: TNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
 #[binrw]
 #[brw(little)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -24,10 +36,13 @@ pub struct SunAndMoons {
     pub moons: u8,
 }
 
-impl TryInto<SunAndMoons> for TNAM {
+impl TryFrom<TNAM> for SunAndMoons {
     type Error = Error;
 
-    fn try_into(self) -> Result<SunAndMoons, Error> {
-        Ok(SunAndMoons::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: TNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

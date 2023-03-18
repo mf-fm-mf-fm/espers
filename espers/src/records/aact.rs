@@ -45,6 +45,7 @@ impl TryFrom<AACT> for Action {
             .transpose()?;
 
         check_done_reading(&mut cursor)?;
+
         Ok(Self {
             header: raw.header,
             edid,

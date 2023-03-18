@@ -1,7 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
 use crate::common::FormID;
 use crate::error::Error;
-use crate::fields::{EDID, NAME, VMAD};
+use crate::fields::{ScriptList, EDID, NAME, VMAD};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -21,6 +21,7 @@ pub struct REFR {
 pub struct ObjectRef {
     pub header: RecordHeader,
     pub edid: Option<String>,
+    pub scripts: Option<ScriptList>,
     pub name: FormID,
 }
 
@@ -45,12 +46,16 @@ impl TryFrom<REFR> for ObjectRef {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let _vmad = VMAD::read(&mut cursor);
+        let scripts = VMAD::read(&mut cursor)
+            .ok()
+            .map(TryInto::try_into)
+            .transpose()?;
         let name = NAME::read(&mut cursor)?.try_into()?;
 
         Ok(Self {
             header: raw.header,
             edid,
+            scripts,
             name,
         })
     }

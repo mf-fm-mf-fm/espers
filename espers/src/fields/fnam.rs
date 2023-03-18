@@ -1,3 +1,4 @@
+use crate::common::check_done_reading;
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead, NullString};
 use serde_derive::{Deserialize, Serialize};
@@ -12,11 +13,25 @@ pub struct FNAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<u32> for FNAM {
+impl TryFrom<FNAM> for u16 {
     type Error = Error;
 
-    fn try_into(self) -> Result<u32, Error> {
-        Ok(u32::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: FNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<FNAM> for u32 {
+    type Error = Error;
+
+    fn try_from(raw: FNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 

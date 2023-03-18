@@ -1,9 +1,10 @@
 mod app;
+mod widgets;
 
 use app::VespersApp;
 
 use espers::plugin::Plugin;
-use espers::string_table::StringTables;
+use espers::string_table::StringTable;
 
 use std::fs::File;
 
@@ -24,8 +25,8 @@ pub struct Args {
 
 pub fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
+    let strings = StringTable::from_plugin_path(args.path.as_ref(), args.language.as_ref())?;
     let mut plugin = Plugin::parse(&mut File::open(&args.path)?)?;
-    let strings = StringTables::load(args.path.as_ref(), args.language.as_ref())?;
 
     plugin.localize(&strings);
 

@@ -25,7 +25,7 @@ pub struct DialogueBranch {
 
 impl fmt::Display for DialogueBranch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DialogBranch ({}) {:X}", self.edid, self.quest_id)
+        write!(f, "DialogBranch ({})", self.edid)
     }
 }
 

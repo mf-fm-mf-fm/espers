@@ -15,7 +15,16 @@ pub struct DESC {
 impl TryInto<String> for DESC {
     type Error = Error;
 
-    fn try_into(self) -> Result<String, Error> {
+    fn try_into(self) -> Result<String, Self::Error> {
         Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+    }
+}
+
+impl TryInto<u32> for DESC {
+    type Error = Error;
+
+    fn try_into(self) -> Result<u32, Self::Error> {
+        let mut cursor = Cursor::new(&self.data);
+        Ok(u32::read_le(&mut cursor)?)
     }
 }

@@ -22,11 +22,20 @@ impl TryInto<RGBA8> for CNAM {
     }
 }
 
-impl TryInto<String> for CNAM {
+impl TryInto<u32> for CNAM {
     type Error = Error;
 
-    fn try_into(self) -> Result<String, Self::Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+    fn try_into(self) -> Result<u32, Self::Error> {
+        let mut cursor = Cursor::new(&self.data);
+        Ok(u32::read_le(&mut cursor)?)
+    }
+}
+
+impl TryFrom<CNAM> for String {
+    type Error = Error;
+
+    fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
+        Ok(NullString::read_le(&mut Cursor::new(&raw.data))?.to_string())
     }
 }
 

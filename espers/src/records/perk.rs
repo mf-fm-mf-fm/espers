@@ -15,7 +15,6 @@ pub struct PERK {
     #[br(count = header.size)]
     pub data: Vec<u8>,
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Perk {
     pub header: RecordHeader,
@@ -40,10 +39,11 @@ impl TryFrom<PERK> for Perk {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let scripts = VMAD::read(&mut cursor)
+        let scripts: Option<ScriptList> = VMAD::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
+
         let full_name = FULL::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)

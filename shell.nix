@@ -2,6 +2,16 @@
 with pkgs;
 mkShell rec {
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ cmake vulkan-loader libxkbcommon wayland fontconfig ];
+  buildInputs = [
+    cargo-bloat
+    cargo-expand
+    cargo-flamegraph
+    cargo-geiger
+    cmake
+    fontconfig
+    libxkbcommon
+    vulkan-loader
+    wayland
+  ];
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
 }

@@ -1,3 +1,4 @@
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead, NullString};
 use serde_derive::{Deserialize, Serialize};
@@ -12,10 +13,24 @@ pub struct MODL {
     pub data: Vec<u8>,
 }
 
-impl TryInto<String> for MODL {
+impl TryFrom<MODL> for String {
     type Error = Error;
 
-    fn try_into(self) -> Result<String, Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+    fn try_from(raw: MODL) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<MODL> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: MODL) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
