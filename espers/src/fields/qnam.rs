@@ -1,3 +1,4 @@
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -12,10 +13,13 @@ pub struct QNAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<u32> for QNAM {
+impl TryFrom<QNAM> for FormID {
     type Error = Error;
 
-    fn try_into(self) -> Result<u32, Error> {
-        Ok(u32::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: QNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

@@ -1,3 +1,4 @@
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, BinRead};
 use rgb::RGBA8;
@@ -13,19 +14,38 @@ pub struct PNAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<f32> for PNAM {
+impl TryFrom<PNAM> for f32 {
     type Error = Error;
 
-    fn try_into(self) -> Result<f32, Error> {
-        Ok(f32::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: PNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
-impl TryInto<RGBA8> for PNAM {
+impl TryFrom<PNAM> for RGBA8 {
     type Error = Error;
 
-    fn try_into(self) -> Result<RGBA8, Self::Error> {
-        let parsed: [u8; 4] = BinRead::read(&mut Cursor::new(&self.data))?;
-        Ok(parsed.into())
+    fn try_from(raw: PNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result: [u8; 4] = BinRead::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result.into())
+    }
+}
+
+impl TryFrom<PNAM> for Vec<FormID> {
+    type Error = Error;
+
+    fn try_from(raw: PNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(raw.data);
+        let mut result = Vec::new();
+        while let Ok(fid) = FormID::read(&mut cursor) {
+            result.push(fid);
+        }
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

@@ -12,6 +12,10 @@ use clap::Parser;
 pub struct Args {
     /// Path to plugin file
     path: String,
+
+    /// Skip printing out records. Useful for checking for parsing errors.
+    #[clap(long)]
+    quiet: bool,
 }
 
 pub fn dump(group: &Group, indent: usize) {
@@ -34,9 +38,11 @@ pub fn main() -> Result<(), Error> {
 
     let plugin = Plugin::parse(&mut f)?;
 
-    for record in plugin.records {
-        if let Record::Group(g) = record {
-            dump(&g, 0);
+    if !args.quiet {
+        for record in plugin.records {
+            if let Record::Group(g) = record {
+                dump(&g, 0);
+            }
         }
     }
 

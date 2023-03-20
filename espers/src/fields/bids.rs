@@ -12,6 +12,7 @@ pub struct BIDS {
     #[br(count = size)]
     pub data: Vec<u8>,
 }
+
 impl TryFrom<BIDS> for FormID {
     type Error = Error;
 

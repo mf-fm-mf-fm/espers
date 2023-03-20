@@ -1,6 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
-use crate::fields::{EDID, QNAM};
+use crate::fields::{DNAM, EDID, QNAM, SNAM, TNAM};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -20,7 +21,10 @@ pub struct DLBR {
 pub struct DialogueBranch {
     pub header: RecordHeader,
     pub edid: String,
-    pub quest_id: u32,
+    pub quest_id: FormID,
+    pub unknown: u32,
+    pub flags: u32,
+    pub start_dialog: FormID,
 }
 
 impl fmt::Display for DialogueBranch {
@@ -38,11 +42,19 @@ impl TryFrom<DLBR> for DialogueBranch {
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
         let quest_id = QNAM::read(&mut cursor)?.try_into()?;
+        let unknown = TNAM::read(&mut cursor)?.try_into()?;
+        let flags = DNAM::read(&mut cursor)?.try_into()?;
+        let start_dialog = SNAM::read(&mut cursor)?.try_into()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,
             edid,
             quest_id,
+            unknown,
+            flags,
+            start_dialog,
         })
     }
 }

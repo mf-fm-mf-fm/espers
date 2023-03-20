@@ -2,8 +2,8 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    ModelTextures, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM, KSIZ, KWDA,
-    MICO, MODL, MODT, OBND, VMAD, YNAM, ZNAM,
+    DestructionData, Model, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM,
+    KSIZ, KWDA, MICO, OBND, VMAD, YNAM, ZNAM,
 };
 use crate::string_table::StringTable;
 use binrw::{binrw, BinRead};
@@ -68,11 +68,11 @@ pub struct Book {
     pub scripts: Option<ScriptList>,
     pub bounds: ObjectBounds,
     pub full_name: Option<LocalizedString>,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<ModelTextures>,
+    pub model: Option<Model>,
+    pub inventory_image: Option<String>,
+    pub message_image: Option<String>,
     pub text: LocalizedString,
-    pub icon: Option<String>,
-    pub message_icon: Option<String>,
+    pub destruction_data: Option<DestructionData>,
     pub pickup_sound: Option<FormID>,
     pub drop_sound: Option<FormID>,
     pub keywords: Vec<FormID>,
@@ -127,11 +127,12 @@ impl TryFrom<BOOK> for Book {
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        let model_filename = MODL::read(&mut cursor)
+        let model = Model::try_load(&mut cursor, raw.header.internal_version)?;
+        let inventory_image = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
+        let message_image = MICO::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
@@ -140,14 +141,7 @@ impl TryFrom<BOOK> for Book {
         } else {
             LocalizedString::ZString(DESC::read(&mut cursor)?.try_into()?)
         };
-        let icon = ICON::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let message_icon = MICO::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
+        let destruction_data = DestructionData::load(&mut cursor)?;
         let pickup_sound = YNAM::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -192,11 +186,11 @@ impl TryFrom<BOOK> for Book {
             scripts,
             bounds,
             full_name,
-            model_filename,
-            model_textures,
+            model,
+            inventory_image,
+            message_image,
             text,
-            icon,
-            message_icon,
+            destruction_data,
             pickup_sound,
             drop_sound,
             keywords,

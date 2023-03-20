@@ -1,9 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
-use crate::common::{FormID, LocalizedString};
+use crate::common::{check_done_reading, LocalizedString};
 use crate::error::Error;
-use crate::fields::{
-    Condition, EffectItem, ObjectBounds, CTDA, EDID, EFID, EFIT, ENIT, FULL, OBND,
-};
+use crate::fields::{Effect, EnchantedItem, ObjectBounds, EDID, ENIT, FULL, OBND};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -22,31 +20,6 @@ pub struct ENCH {
     #[bw(ignore)]
     pub localized: bool,
 }
-
-#[binrw]
-#[brw(little)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnchantedItem {
-    pub cost: u32,
-    pub flags: u32,
-    pub cast_type: u32,
-    pub amount: u32,
-    pub delivery: u32,
-    pub kind: u32,
-    pub charge_time: f32,
-    pub base_enchantment: u32,
-    #[br(try)]
-    pub worn_restrictions: Option<u32>,
-}
-
-impl TryFrom<ENIT> for EnchantedItem {
-    type Error = Error;
-
-    fn try_from(raw: ENIT) -> Result<Self, Self::Error> {
-        Ok(Self::read(&mut Cursor::new(&raw.data))?)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Enchantment {
     pub header: RecordHeader,
@@ -54,7 +27,7 @@ pub struct Enchantment {
     pub obnd: ObjectBounds,
     pub full_name: Option<LocalizedString>,
     pub item: EnchantedItem,
-    pub effects: Vec<(FormID, EffectItem, Vec<Condition>)>,
+    pub effects: Vec<Effect>,
 }
 
 impl fmt::Display for Enchantment {
@@ -81,16 +54,11 @@ impl TryFrom<ENCH> for Enchantment {
 
         let mut effects = Vec::new();
 
-        while let Ok(efid) = EFID::read(&mut cursor) {
-            let efit = EFIT::read(&mut cursor)?.try_into()?;
-            let mut ctdas = Vec::new();
-
-            while let Ok(ctda) = CTDA::read(&mut cursor) {
-                ctdas.push(ctda.try_into()?);
-            }
-
-            effects.push((efid.try_into()?, efit, ctdas));
+        while let Ok(e) = Effect::load(&mut cursor) {
+            effects.push(e);
         }
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,

@@ -1,6 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
-use crate::fields::EDID;
+use crate::fields::{DATA, EDID, PNAM};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -19,12 +20,14 @@ pub struct EQUP {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EquipSlot {
     pub header: RecordHeader,
-    pub edid: Option<String>,
+    pub edid: String,
+    pub equip_slots: Vec<FormID>,
+    pub use_all_parents: u32,
 }
 
 impl fmt::Display for EquipSlot {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "EquipSlot ({})", self.edid.as_deref().unwrap_or("~"))
+        write!(f, "EquipSlot ({})", self.edid)
     }
 }
 
@@ -35,14 +38,21 @@ impl TryFrom<EQUP> for EquipSlot {
         let data = get_cursor(&raw.data, raw.header.flags.contains(Flags::COMPRESSED));
         let mut cursor = Cursor::new(&data);
 
-        let edid = EDID::read(&mut cursor)
+        let edid = EDID::read(&mut cursor)?.try_into()?;
+        let equip_slots = PNAM::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
-            .transpose()?;
+            .transpose()?
+            .unwrap_or_else(Vec::new);
+        let use_all_parents = DATA::read(&mut cursor)?.try_into()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,
             edid,
+            equip_slots,
+            use_all_parents,
         })
     }
 }

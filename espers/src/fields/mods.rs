@@ -1,4 +1,4 @@
-use crate::common::{check_done_reading, FormID};
+use crate::common::{check_done_reading, FormID, WString32};
 use crate::error::Error;
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -18,9 +18,7 @@ pub struct MODS {
 #[brw(little)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AlternateTexture {
-    pub size: u32,
-    #[br(count = size)]
-    pub object_name: Vec<u8>,
+    pub object_name: WString32,
     pub texture_set: FormID,
     pub threed_index: u32,
 }

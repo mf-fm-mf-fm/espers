@@ -1,5 +1,5 @@
 use super::{get_cursor, Flags, RecordHeader};
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use crate::fields::{EDID, INAM};
 use binrw::{binrw, BinRead};
@@ -21,7 +21,7 @@ pub struct OTFT {
 pub struct Outfit {
     pub header: RecordHeader,
     pub edid: String,
-    pub form_ids: Vec<FormID>,
+    pub inventory: Vec<FormID>,
 }
 
 impl fmt::Display for Outfit {
@@ -38,12 +38,14 @@ impl TryFrom<OTFT> for Outfit {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let form_ids = INAM::read(&mut cursor)?.try_into()?;
+        let inventory = INAM::read(&mut cursor)?.try_into()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,
             edid,
-            form_ids,
+            inventory,
         })
     }
 }

@@ -58,19 +58,3 @@ impl TryFrom<MODT> for Vec<Unknown4> {
         Ok(parsed)
     }
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum Textures {
-    Header(ModelTextures),
-    NoHeader(Vec<Unknown4>),
-}
-
-impl Textures {
-    pub fn load(modt: MODT, version: u16) -> Result<Self, Error> {
-        Ok(match version {
-            0..=37 => Err(Error::UnknownVersion(format!("{:?}", modt), version))?,
-            38..=39 => Self::NoHeader(modt.try_into()?),
-            40.. => Self::Header(modt.try_into()?),
-        })
-    }
-}

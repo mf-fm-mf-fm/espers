@@ -24,12 +24,20 @@ impl TryFrom<Vec<u8>> for DATA {
     }
 }
 
+impl TryFrom<DATA> for Vec<u8> {
+    type Error = Error;
+
+    fn try_from(raw: DATA) -> Result<Self, Self::Error> {
+        Ok(raw.data)
+    }
+}
+
 impl TryFrom<DATA> for u32 {
     type Error = Error;
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        let result = u32::read_le(&mut cursor)?;
+        let result = Self::read_le(&mut cursor)?;
         check_done_reading(&mut cursor)?;
         Ok(result)
     }
@@ -55,7 +63,7 @@ impl TryFrom<DATA> for f32 {
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        let result = f32::read_le(&mut cursor)?;
+        let result = Self::read_le(&mut cursor)?;
         check_done_reading(&mut cursor)?;
         Ok(result)
     }

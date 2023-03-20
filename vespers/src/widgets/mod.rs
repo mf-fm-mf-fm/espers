@@ -1,11 +1,20 @@
 pub mod addn;
+pub mod aspc;
 pub mod book;
+pub mod otft;
 
 use crate::app::Message;
 
 use espers::{
-    common::{FormID, LocalizedString},
-    fields::{ModelTextures, ObjectBounds, Property, Script, ScriptList, Unknown4},
+    common::{FormID, LocalizedString, WString32},
+    fields::{
+        dest::{DestructionDataHeader, StageData},
+        dmds::{DestructionTexture, DestructionTextures},
+        dstd::StageDataHeader,
+        mods::AlternateTexture,
+        AlternateTextures, DestructionData, Model, ModelTextures, ObjectBounds, Property, Script,
+        ScriptList, Textures, Unknown4,
+    },
     plugin::Plugin,
     records::Record,
 };
@@ -144,6 +153,15 @@ impl ToIced for LocalizedString {
         .width(Length::Fill)
         .padding(10)
         .into()
+    }
+}
+
+impl ToIced for WString32 {
+    fn to_iced(&self, _: &Plugin) -> Element<Message> {
+        Container::new(text(self.to_string()))
+            .width(Length::Fill)
+            .padding(10)
+            .into()
     }
 }
 
@@ -315,6 +333,145 @@ impl ToIced for ModelTextures {
         Container::new(g).width(Length::Fill).padding(10).into()
     }
 }
+
+impl ToIced for Textures {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        match self {
+            Textures::Header(x) => x.to_iced(plugin),
+            Textures::NoHeader(x) => x.to_iced(plugin),
+        }
+    }
+}
+
+impl ToIced for AlternateTexture {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Object Name")).padding(10))
+            .push(self.object_name.to_iced(plugin))
+            .push(Container::new(text("Texture Set")).padding(10))
+            .push(self.texture_set.to_iced(plugin))
+            .push(Container::new(text("3D Index")).padding(10))
+            .push(self.threed_index.to_iced(plugin));
+
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for AlternateTextures {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Count")).padding(10))
+            .push(self.count.to_iced(plugin))
+            .push(Container::new(text("Textures")).padding(10))
+            .push(self.textures.to_iced(plugin));
+
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for Model {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Model")).padding(10))
+            .push(self.model.to_iced(plugin))
+            .push(Container::new(text("Textures")).padding(10))
+            .push(self.textures.to_iced(plugin))
+            .push(Container::new(text("Alternate Textures")).padding(10))
+            .push(self.alternate_textures.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for DestructionTexture {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Name")).padding(10))
+            .push(self.name.to_iced(plugin))
+            .push(Container::new(text("Texture ID")).padding(10))
+            .push(self.texture_id.to_iced(plugin))
+            .push(Container::new(text("Unknown 1")).padding(10))
+            .push(self.unknown1.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for DestructionTextures {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Count")).padding(10))
+            .push(self.count.to_iced(plugin))
+            .push(Container::new(text("Textures")).padding(10))
+            .push(self.textures.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for StageDataHeader {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Health Percent")).padding(10))
+            .push(self.health_percent.to_iced(plugin))
+            .push(Container::new(text("Index")).padding(10))
+            .push(self.index.to_iced(plugin))
+            .push(Container::new(text("Damage Stage")).padding(10))
+            .push(self.damage_stage.to_iced(plugin))
+            .push(Container::new(text("Flags")).padding(10))
+            .push(self.flags.to_iced(plugin))
+            .push(Container::new(text("Self Damage Rate")).padding(10))
+            .push(self.self_damage_rate.to_iced(plugin))
+            .push(Container::new(text("Explosion ID")).padding(10))
+            .push(self.explosion_id.to_iced(plugin))
+            .push(Container::new(text("Debris ID")).padding(10))
+            .push(self.debris_id.to_iced(plugin))
+            .push(Container::new(text("Debris Count")).padding(10))
+            .push(self.debris_count.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for StageData {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Header")).padding(10))
+            .push(self.header.to_iced(plugin))
+            .push(Container::new(text("Replacement Model")).padding(10))
+            .push(self.replacement_model.to_iced(plugin))
+            .push(Container::new(text("Unknown 1")).padding(10))
+            .push(self.unknown1.to_iced(plugin))
+            .push(Container::new(text("Textures")).padding(10))
+            .push(self.destruction_textures.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for DestructionDataHeader {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Health")).padding(10))
+            .push(self.health.to_iced(plugin))
+            .push(Container::new(text("Count")).padding(10))
+            .push(self.count.to_iced(plugin))
+            .push(Container::new(text("Flag")).padding(10))
+            .push(self.flag.to_iced(plugin))
+            .push(Container::new(text("Unknown 1")).padding(10))
+            .push(self.unknown1.to_iced(plugin))
+            .push(Container::new(text("Unknown 2")).padding(10))
+            .push(self.unknown2.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
+impl ToIced for DestructionData {
+    fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
+        let g = Grid::with_columns(2)
+            .push(Container::new(text("Data")).padding(10))
+            .push(self.data.to_iced(plugin))
+            .push(Container::new(text("Stage Data")).padding(10))
+            .push(self.stage_data.to_iced(plugin));
+        Container::new(g).width(Length::Fill).padding(10).into()
+    }
+}
+
 impl ToIced for Record {
     fn to_iced(&self, plugin: &Plugin) -> Element<Message> {
         match self {
@@ -328,6 +485,8 @@ impl ToIced for Record {
             .into(),
             Record::Book(x) => x.to_iced(plugin),
             Record::AddonNode(x) => x.to_iced(plugin),
+            Record::AcousticSpace(x) => x.to_iced(plugin),
+            Record::Outfit(x) => x.to_iced(plugin),
             rec => text(to_string_pretty(rec, Default::default()).unwrap()).into(),
         }
     }

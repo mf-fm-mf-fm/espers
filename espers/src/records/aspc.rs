@@ -1,6 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::FormID;
 use crate::error::Error;
-use crate::fields::EDID;
+use crate::fields::{ObjectBounds, BNAM, EDID, OBND, RDAT, SNAM};
 use binrw::binrw;
 use binrw::BinRead;
 use serde_derive::{Deserialize, Serialize};
@@ -21,6 +22,10 @@ pub struct ASPC {
 pub struct AcousticSpace {
     pub header: RecordHeader,
     pub edid: String,
+    pub bounds: ObjectBounds,
+    pub ambient: Option<FormID>,
+    pub region_data: Option<FormID>,
+    pub reverb: Option<FormID>,
 }
 
 impl fmt::Display for AcousticSpace {
@@ -37,10 +42,27 @@ impl TryFrom<ASPC> for AcousticSpace {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
+        let bounds = OBND::read(&mut cursor)?.try_into()?;
+        let ambient = SNAM::read(&mut cursor)
+            .ok()
+            .map(TryInto::try_into)
+            .transpose()?;
+        let region_data = RDAT::read(&mut cursor)
+            .ok()
+            .map(TryInto::try_into)
+            .transpose()?;
+        let reverb = BNAM::read(&mut cursor)
+            .ok()
+            .map(TryInto::try_into)
+            .transpose()?;
 
         Ok(Self {
             header: raw.header,
             edid,
+            bounds,
+            ambient,
+            region_data,
+            reverb,
         })
     }
 }

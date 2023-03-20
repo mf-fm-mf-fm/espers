@@ -1,3 +1,4 @@
+use crate::common::check_done_reading;
 use crate::error::Error;
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -21,11 +22,13 @@ pub struct EffectItem {
     pub duration: u32,
 }
 
-impl TryInto<EffectItem> for EFIT {
+impl TryFrom<EFIT> for EffectItem {
     type Error = Error;
 
-    fn try_into(self) -> Result<EffectItem, Error> {
-        let mut cursor = Cursor::new(&self.data);
-        Ok(EffectItem::read_le(&mut cursor)?)
+    fn try_from(raw: EFIT) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

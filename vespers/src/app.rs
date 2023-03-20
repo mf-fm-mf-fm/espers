@@ -14,7 +14,8 @@ use iced::{
 };
 use once_cell::sync::Lazy;
 
-static SCROLLABLE_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
+static SCROLLABLE_LEFT: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
+static SCROLLABLE_RIGHT: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
 
 pub struct ContainerSS;
 
@@ -30,7 +31,8 @@ impl container::StyleSheet for ContainerSS {
 }
 
 pub struct VespersApp {
-    current_scroll_offset: scrollable::RelativeOffset,
+    left_scroll_offset: scrollable::RelativeOffset,
+    right_scroll_offset: scrollable::RelativeOffset,
     plugin: Plugin,
     args: Args,
     state: Vec<usize>,
@@ -73,7 +75,8 @@ impl VespersApp {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Scrolled(scrollable::RelativeOffset),
+    LeftPaneScroll(scrollable::RelativeOffset),
+    RightPaneScroll(scrollable::RelativeOffset),
     Click(usize),
     Back,
     ToggleTheme,
@@ -89,7 +92,8 @@ impl Application for VespersApp {
     fn new(flags: Self::Flags) -> (Self, Command<Message>) {
         (
             VespersApp {
-                current_scroll_offset: scrollable::RelativeOffset::START,
+                left_scroll_offset: scrollable::RelativeOffset::START,
+                right_scroll_offset: scrollable::RelativeOffset::START,
                 plugin: flags.0,
                 args: flags.1,
                 state: Vec::new(),
@@ -111,10 +115,15 @@ impl Application for VespersApp {
                     Some(Record::Group(_)) | None => self.state.push(i),
                     Some(_) => *self.state.last_mut().unwrap() = i,
                 }
+                self.right_scroll_offset = scrollable::RelativeOffset::START;
+                scrollable::snap_to(SCROLLABLE_RIGHT.clone(), self.right_scroll_offset)
+            }
+            Message::LeftPaneScroll(offset) => {
+                self.left_scroll_offset = offset;
                 Command::none()
             }
-            Message::Scrolled(offset) => {
-                self.current_scroll_offset = offset;
+            Message::RightPaneScroll(offset) => {
+                self.right_scroll_offset = offset;
                 Command::none()
             }
             Message::Back => {
@@ -125,7 +134,8 @@ impl Application for VespersApp {
                     }
                 }
                 self.state.pop();
-                Command::none()
+                self.left_scroll_offset = scrollable::RelativeOffset::START;
+                scrollable::snap_to(SCROLLABLE_LEFT.clone(), self.left_scroll_offset)
             }
             Message::ToggleTheme => {
                 self.theme = match self.theme {
@@ -207,15 +217,17 @@ impl Application for VespersApp {
             )
             .height(Length::Fill)
             .vertical_scroll(Properties::new().scroller_width(10))
-            .id(SCROLLABLE_ID.clone())
-            .on_scroll(Message::Scrolled),
+            .id(SCROLLABLE_LEFT.clone())
+            .on_scroll(Message::LeftPaneScroll),
             scrollable(
                 column![displayed]
                     .width(Length::Fill)
                     .align_items(Alignment::Start),
             )
             .height(Length::Fill)
-            .vertical_scroll(Properties::new().scroller_width(10)),
+            .vertical_scroll(Properties::new().scroller_width(10))
+            .id(SCROLLABLE_RIGHT.clone())
+            .on_scroll(Message::RightPaneScroll),
         ]
         .spacing(20);
 

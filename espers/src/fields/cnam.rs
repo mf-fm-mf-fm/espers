@@ -1,3 +1,4 @@
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead, BinWrite, NullString};
 use rgb::RGBA8;
@@ -13,21 +14,25 @@ pub struct CNAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<RGBA8> for CNAM {
+impl TryFrom<CNAM> for RGBA8 {
     type Error = Error;
 
-    fn try_into(self) -> Result<RGBA8, Self::Error> {
-        let parsed: [u8; 4] = BinRead::read(&mut Cursor::new(&self.data))?;
-        Ok(parsed.into())
+    fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result: [u8; 4] = BinRead::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result.into())
     }
 }
 
-impl TryInto<u32> for CNAM {
+impl TryFrom<CNAM> for u32 {
     type Error = Error;
 
-    fn try_into(self) -> Result<u32, Self::Error> {
-        let mut cursor = Cursor::new(&self.data);
-        Ok(u32::read_le(&mut cursor)?)
+    fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -35,7 +40,10 @@ impl TryFrom<CNAM> for String {
     type Error = Error;
 
     fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&raw.data))?.to_string())
+        let mut cursor = Cursor::new(&raw.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -51,5 +59,19 @@ impl TryFrom<String> for CNAM {
             size: data.len() as u16,
             data,
         })
+    }
+}
+
+impl TryFrom<CNAM> for Vec<FormID> {
+    type Error = Error;
+
+    fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let mut result = Vec::new();
+        while let Ok(fid) = FormID::read_le(&mut cursor) {
+            result.push(fid);
+        }
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

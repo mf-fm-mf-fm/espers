@@ -12,6 +12,7 @@ pub struct BMCT {
     #[br(count = size)]
     pub data: Vec<u8>,
 }
+
 impl TryFrom<BMCT> for String {
     type Error = Error;
 

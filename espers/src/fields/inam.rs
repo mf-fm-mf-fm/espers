@@ -1,4 +1,4 @@
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, helpers::until_eof, io::Cursor, BinRead, Endian};
 use serde_derive::{Deserialize, Serialize};
@@ -13,20 +13,24 @@ pub struct INAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<FormID> for INAM {
+impl TryFrom<INAM> for FormID {
     type Error = Error;
 
-    fn try_into(self) -> Result<FormID, Error> {
-        let mut cursor = Cursor::new(&self.data);
-        Ok(FormID::read_le(&mut cursor)?)
+    fn try_from(raw: INAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
-impl TryInto<Vec<FormID>> for INAM {
+impl TryFrom<INAM> for Vec<FormID> {
     type Error = Error;
 
-    fn try_into(self) -> Result<Vec<FormID>, Error> {
-        let mut cursor = Cursor::new(&self.data);
-        Ok(until_eof(&mut cursor, Endian::Little, ())?)
+    fn try_from(raw: INAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = until_eof(&mut cursor, Endian::Little, ())?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

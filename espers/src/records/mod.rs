@@ -153,7 +153,7 @@ pub use dlbr::{DialogueBranch, DLBR};
 pub use dlvw::{DialogueView, DLVW};
 pub use dobj::{DefaultObjectManager, DOBJ};
 pub use door::{Door, DOOR};
-pub use dual::{DualCastData, DUAL};
+pub use dual::{DualCastArt, DUAL};
 pub use eczn::{EncounterZone, ECZN};
 pub use efsh::{EffectShader, EFSH};
 pub use ench::{Enchantment, ENCH};
@@ -301,11 +301,11 @@ pub enum RawRecord {
     BPTD(BPTD),
     CAMS(CAMS),
     CELL(CELL),
-    CLAS(CLAS),
-    CLFM(CLFM),
+    CLAS(#[br(args(localized))] CLAS),
+    CLFM(#[br(args(localized))] CLFM),
     CLMT(CLMT),
     COBJ(COBJ),
-    COLL(COLL),
+    COLL(#[br(args(localized))] COLL),
     CONT(CONT),
     CPTH(CPTH),
     CSTY(CSTY),
@@ -314,13 +314,13 @@ pub enum RawRecord {
     DLBR(DLBR),
     DLVW(DLVW),
     DOBJ(DOBJ),
-    DOOR(DOOR),
+    DOOR(#[br(args(localized))] DOOR),
     DUAL(DUAL),
     ECZN(ECZN),
     EFSH(EFSH),
     ENCH(#[br(args(localized))] ENCH),
     EQUP(EQUP),
-    EXPL(EXPL),
+    EXPL(#[br(args(localized))] EXPL),
     EYES(EYES),
     FACT(FACT),
     FLOR(FLOR),
@@ -441,7 +441,7 @@ pub enum Record {
     DialogueTopicInfo(DialogueTopicInfo),
     DialogueView(DialogueView),
     Door(Door),
-    DualCastData(DualCastData),
+    DualCastArt(DualCastArt),
     EffectShader(EffectShader),
     Enchantment(Enchantment),
     EncounterZone(EncounterZone),
@@ -568,7 +568,7 @@ impl TryFrom<RawRecord> for Record {
                 DefaultObjectManager::try_from(x)?,
             )),
             RawRecord::DOOR(x) => Ok(Record::Door(Door::try_from(x)?)),
-            RawRecord::DUAL(x) => Ok(Record::DualCastData(DualCastData::try_from(x)?)),
+            RawRecord::DUAL(x) => Ok(Record::DualCastArt(DualCastArt::try_from(x)?)),
             RawRecord::ECZN(x) => Ok(Record::EncounterZone(EncounterZone::try_from(x)?)),
             RawRecord::EFSH(x) => Ok(Record::EffectShader(EffectShader::try_from(x)?)),
             RawRecord::ENCH(x) => Ok(Record::Enchantment(Enchantment::try_from(x)?)),
@@ -705,7 +705,7 @@ impl fmt::Display for Record {
             Record::DialogueTopicInfo(x) => write!(f, "{}", x),
             Record::DialogueView(x) => write!(f, "{}", x),
             Record::Door(x) => write!(f, "{}", x),
-            Record::DualCastData(x) => write!(f, "{}", x),
+            Record::DualCastArt(x) => write!(f, "{}", x),
             Record::EffectShader(x) => write!(f, "{}", x),
             Record::Enchantment(x) => write!(f, "{}", x),
             Record::EncounterZone(x) => write!(f, "{}", x),
@@ -800,6 +800,8 @@ impl Record {
         match self {
             Record::Alchemy(x) => x.localize(string_table),
             Record::Book(x) => x.localize(string_table),
+            Record::Class(x) => x.localize(string_table),
+            Record::Color(x) => x.localize(string_table),
             Record::Group(x) => x.localize(string_table),
             _ => {}
         }
@@ -839,7 +841,7 @@ impl Record {
             Record::DialogueView(_) => *b"DLVW",
             Record::DefaultObjectManager(_) => *b"DOBJ",
             Record::Door(_) => *b"DOOR",
-            Record::DualCastData(_) => *b"DUAL",
+            Record::DualCastArt(_) => *b"DUAL",
             Record::EncounterZone(_) => *b"ECZN",
             Record::EffectShader(_) => *b"EFSH",
             Record::Enchantment(_) => *b"ENCH",
@@ -964,7 +966,7 @@ impl Record {
             Record::DialogueView(rec) => Some(rec.header.form_id),
             Record::DefaultObjectManager(rec) => Some(rec.header.form_id),
             Record::Door(rec) => Some(rec.header.form_id),
-            Record::DualCastData(rec) => Some(rec.header.form_id),
+            Record::DualCastArt(rec) => Some(rec.header.form_id),
             Record::EncounterZone(rec) => Some(rec.header.form_id),
             Record::EffectShader(rec) => Some(rec.header.form_id),
             Record::Enchantment(rec) => Some(rec.header.form_id),

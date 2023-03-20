@@ -24,19 +24,7 @@ impl TryFrom<TNAM> for FormID {
     }
 }
 
-#[binrw]
-#[brw(little)]
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SunAndMoons {
-    pub sunrise_begin: u8,
-    pub sunrise_end: u8,
-    pub sunset_begin: u8,
-    pub sunset_end: u8,
-    pub volatility: u8,
-    pub moons: u8,
-}
-
-impl TryFrom<TNAM> for SunAndMoons {
+impl TryFrom<TNAM> for u32 {
     type Error = Error;
 
     fn try_from(raw: TNAM) -> Result<Self, Self::Error> {
