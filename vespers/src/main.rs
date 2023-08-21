@@ -3,20 +3,16 @@ mod widgets;
 
 use app::VespersApp;
 
-use espers::plugin::Plugin;
-use espers::string_table::StringTable;
-
-use std::fs::File;
-
 use clap::Parser;
+use espers::game::Game;
 use iced::{Application, Settings};
 
 /// Dump contents of *.es[mp] files
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Path to plugin file
-    path: String,
+    /// Paths to plugin files
+    paths: Vec<String>,
 
     /// Which language to load localized strings for
     #[clap(long, short, default_value = "English")]
@@ -25,12 +21,10 @@ pub struct Args {
 
 pub fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
-    let strings = StringTable::from_plugin_path(args.path.as_ref(), args.language.as_ref())?;
-    let mut plugin = Plugin::parse(&mut File::open(&args.path)?)?;
+    let paths: Vec<_> = args.paths.iter().map(AsRef::as_ref).collect();
+    let game = Game::load(&paths, args.language.as_ref())?;
 
-    plugin.localize(&strings);
-
-    VespersApp::run(Settings::with_flags((plugin, args)))?;
+    VespersApp::run(Settings::with_flags((game, args)))?;
 
     Ok(())
 }

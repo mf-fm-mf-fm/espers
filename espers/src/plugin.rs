@@ -1,7 +1,7 @@
 use crate::common::FormID;
 use crate::error::Error;
 use crate::records::{tes4::Flags, Header, RawRecord, Record, TES4};
-use crate::string_table::StringTable;
+use crate::string_table::StringTables;
 use binrw::{until_eof, BinRead, Endian};
 use std::collections::HashMap;
 use std::io::{Read, Seek};
@@ -52,7 +52,7 @@ impl Plugin {
         })
     }
 
-    pub fn localize(&mut self, string_table: &StringTable) {
+    pub fn localize(&mut self, string_table: &StringTables) {
         for record in &mut self.records {
             record.localize(string_table);
         }

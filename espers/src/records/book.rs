@@ -5,7 +5,7 @@ use crate::fields::{
     DestructionData, Model, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM,
     KSIZ, KWDA, MICO, OBND, VMAD, YNAM, ZNAM,
 };
-use crate::string_table::StringTable;
+use crate::string_table::StringTables;
 use binrw::{binrw, BinRead};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -82,7 +82,7 @@ pub struct Book {
 }
 
 impl Book {
-    pub fn localize(&mut self, string_table: &StringTable) {
+    pub fn localize(&mut self, string_table: &StringTables) {
         if let Some(LocalizedString::Localized(l)) = self.full_name {
             if let Some(s) = string_table.get_string(&l) {
                 self.full_name = Some(LocalizedString::ZString(s.clone()));

@@ -1,4 +1,5 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::{check_done_reading, LocalizedString};
 use crate::error::Error;
 use crate::fields::{DATA, EDID, FULL, ICON};
 use binrw::{binrw, BinRead};
@@ -8,13 +9,18 @@ use std::fmt;
 use std::io::Cursor;
 
 #[binrw]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[br(import(localized: bool))]
 #[brw(little, magic = b"EYES")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EYES {
     pub header: RecordHeader,
 
     #[br(count = header.size)]
     pub data: Vec<u8>,
+
+    #[br(calc(localized))]
+    #[bw(ignore)]
+    pub localized: bool,
 }
 
 bitflags! {
@@ -33,7 +39,9 @@ impl TryFrom<DATA> for EyesFlags {
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        Ok(Self::read(&mut cursor)?)
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -41,7 +49,7 @@ impl TryFrom<DATA> for EyesFlags {
 pub struct Eyes {
     pub header: RecordHeader,
     pub edid: String,
-    pub full_name: String,
+    pub full_name: LocalizedString,
     pub icon: String,
     pub flags: EyesFlags,
 }
@@ -60,9 +68,15 @@ impl TryFrom<EYES> for Eyes {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let full_name = FULL::read(&mut cursor)?.try_into()?;
+        let full_name = if raw.localized {
+            LocalizedString::Localized(FULL::read(&mut cursor)?.try_into()?)
+        } else {
+            LocalizedString::ZString(FULL::read(&mut cursor)?.try_into()?)
+        };
         let icon = ICON::read(&mut cursor)?.try_into()?;
         let flags = DATA::read(&mut cursor)?.try_into()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,

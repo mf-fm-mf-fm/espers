@@ -14,6 +14,17 @@ pub struct PNAM {
     pub data: Vec<u8>,
 }
 
+impl TryFrom<PNAM> for u32 {
+    type Error = Error;
+
+    fn try_from(raw: PNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
 impl TryFrom<PNAM> for f32 {
     type Error = Error;
 

@@ -1,5 +1,6 @@
 use crate::widgets::ToIced;
 use crate::Args;
+use espers::game::Game;
 use espers::plugin::Plugin;
 use espers::records::{Group, Record};
 use iced::{
@@ -12,6 +13,7 @@ use iced::{
     Alignment, Application, Background, Color, Command, Element, Event, Length, Subscription,
     Theme,
 };
+use iced_aw::{TabBar, TabLabel};
 use once_cell::sync::Lazy;
 
 static SCROLLABLE_LEFT: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
@@ -33,28 +35,36 @@ impl container::StyleSheet for ContainerSS {
 pub struct VespersApp {
     left_scroll_offset: scrollable::RelativeOffset,
     right_scroll_offset: scrollable::RelativeOffset,
-    plugin: Plugin,
+    game: Game,
     args: Args,
     state: Vec<usize>,
     theme: Theme,
     debug_mode: bool,
+    plugin_names: Vec<String>,
+    selected_plugin: usize,
 }
 
 impl VespersApp {
+    fn get_active_plugin(&self) -> &Plugin {
+        &self.game.plugins()[&self.plugin_names[self.selected_plugin]]
+    }
+
     fn selected(&self) -> Option<&Record> {
+        let plugin = self.get_active_plugin();
         let mut selected: Option<&Record> = None;
 
         for i in &self.state {
             selected = match selected {
                 Some(Record::Group(g)) => Some(&g.records[*i]),
                 Some(_) => unreachable!("This should not happen!"),
-                None => Some(&self.plugin.records[*i]),
+                None => Some(&plugin.records[*i]),
             }
         }
         selected
     }
 
     fn selected_group(&self) -> Option<&Group> {
+        let plugin = self.get_active_plugin();
         let mut selected: Option<&Group> = None;
 
         for i in &self.state {
@@ -63,7 +73,7 @@ impl VespersApp {
                     Record::Group(g) => Some(g),
                     _ => break,
                 },
-                None => match &self.plugin.records[*i] {
+                None => match &plugin.records[*i] {
                     Record::Group(g) => Some(g),
                     _ => break,
                 },
@@ -81,24 +91,29 @@ pub enum Message {
     Back,
     ToggleTheme,
     ToggleDebugMode,
+    TabSelected(usize),
 }
 
 impl Application for VespersApp {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
-    type Flags = (Plugin, Args);
+    type Flags = (Game, Args);
 
     fn new(flags: Self::Flags) -> (Self, Command<Message>) {
+        let mut plugin_names: Vec<_> = flags.0.plugins().keys().cloned().collect();
+        plugin_names.sort();
         (
             VespersApp {
                 left_scroll_offset: scrollable::RelativeOffset::START,
                 right_scroll_offset: scrollable::RelativeOffset::START,
-                plugin: flags.0,
+                game: flags.0,
                 args: flags.1,
                 state: Vec::new(),
                 theme: Theme::Dark,
                 debug_mode: false,
+                plugin_names,
+                selected_plugin: 0,
             },
             Command::none(),
         )
@@ -149,13 +164,19 @@ impl Application for VespersApp {
                 self.debug_mode = !self.debug_mode;
                 Command::none()
             }
+            Message::TabSelected(idx) => {
+                self.selected_plugin = idx;
+                self.state = Vec::new();
+                Command::none()
+            }
         }
     }
 
     fn view(&self) -> Element<Message> {
+        let plugin = self.get_active_plugin();
         let selected = match self.selected_group() {
             Some(g) => &g.records,
-            None => &self.plugin.records,
+            None => &plugin.records,
         };
 
         let items: Vec<Element<Message>> = selected
@@ -178,28 +199,37 @@ impl Application for VespersApp {
             .collect();
 
         let displayed: Element<Message> = match self.selected() {
-            Some(ref rec) => rec.to_iced(&self.plugin).into(),
+            Some(ref rec) => rec.to_iced(&self.game).into(),
             None => text("Select an item")
                 .width(Length::Fill)
                 .horizontal_alignment(Horizontal::Center)
                 .into(),
         };
 
+        let tab_bar = self
+            .game
+            .plugins()
+            .keys()
+            .fold(
+                TabBar::new(self.selected_plugin, |x| Message::TabSelected(x)),
+                |tab_bar, name| tab_bar.push(TabLabel::Text(name.clone())),
+            )
+            .tab_width(Length::Shrink)
+            .spacing(8.0)
+            .padding(8.0)
+            .text_size(24.0);
+
         let title_row = row![
             button(text("Back")).on_press(Message::Back),
-            text(&self.args.path).width(Length::Fill),
+            text(&self.args.paths.join(", ")).width(Length::Fill),
             text(&format!(
                 "Author: {}",
-                self.plugin.header.author.as_deref().unwrap_or("<not set>")
+                plugin.header.author.as_deref().unwrap_or("<not set>")
             ))
             .width(Length::Fill),
             text(&format!(
                 "Description: {}",
-                self.plugin
-                    .header
-                    .description
-                    .as_deref()
-                    .unwrap_or("<not set>")
+                plugin.header.description.as_deref().unwrap_or("<not set>")
             ))
             .width(Length::Fill),
         ]
@@ -233,6 +263,7 @@ impl Application for VespersApp {
 
         let ui: Element<Message> = container(
             Column::with_children(vec![
+                tab_bar.into(),
                 container(title_row)
                     .style(ContainerTheme::Custom(Box::new(ContainerSS)))
                     .into(),

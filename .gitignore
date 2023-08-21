@@ -2,3 +2,4 @@
 *.es[pm]
 *.*STRINGS
 assets/
+.direnv/

@@ -243,7 +243,7 @@ pub use wrld::{World, WRLD};
 pub use wthr::{Weather, WTHR};
 
 use crate::error::Error;
-use crate::string_table::StringTable;
+use crate::string_table::StringTables;
 
 use binrw::binrw;
 use bitflags::bitflags;
@@ -321,15 +321,15 @@ pub enum RawRecord {
     ENCH(#[br(args(localized))] ENCH),
     EQUP(EQUP),
     EXPL(#[br(args(localized))] EXPL),
-    EYES(EYES),
+    EYES(#[br(args(localized))] EYES),
     FACT(FACT),
-    FLOR(FLOR),
+    FLOR(#[br(args(localized))] FLOR),
     FLST(FLST),
     FSTP(FSTP),
     FSTS(FSTS),
     FURN(FURN),
     GLOB(GLOB),
-    GMST(GMST),
+    GMST(#[br(args(localized))] GMST),
     GRAS(GRAS),
     GRUP(#[br(args(localized))] GRUP),
     HAZD(HAZD),
@@ -796,13 +796,14 @@ impl fmt::Display for Record {
 }
 
 impl Record {
-    pub fn localize(&mut self, string_table: &StringTable) {
+    pub fn localize(&mut self, string_table: &StringTables) {
         match self {
             Record::Alchemy(x) => x.localize(string_table),
             Record::Book(x) => x.localize(string_table),
             Record::Class(x) => x.localize(string_table),
             Record::Color(x) => x.localize(string_table),
             Record::Group(x) => x.localize(string_table),
+            Record::GameSetting(x) => x.localize(string_table),
             _ => {}
         }
     }

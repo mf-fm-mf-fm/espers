@@ -5,7 +5,7 @@ use crate::fields::{
     AlternateTextures, Condition, EffectItem, ObjectBounds, Unknown4, CTDA, DATA, EDID, EFID, EFIT,
     ENIT, FULL, ICON, KSIZ, KWDA, MICO, MODL, MODS, MODT, OBND, YNAM, ZNAM,
 };
-use crate::string_table::StringTable;
+use crate::string_table::StringTables;
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -68,7 +68,7 @@ pub struct Alchemy {
 }
 
 impl Alchemy {
-    pub fn localize(&mut self, string_table: &StringTable) {
+    pub fn localize(&mut self, string_table: &StringTables) {
         if let Some(LocalizedString::Localized(l)) = self.full_name {
             if let Some(s) = string_table.get_string(&l) {
                 self.full_name = Some(LocalizedString::ZString(s.clone()));

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::records::{RawRecord, Record};
-use crate::string_table::StringTable;
+use crate::string_table::StringTables;
 use binrw::{binrw, io::Cursor, until_eof, Endian};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn localize(&mut self, string_table: &StringTable) {
+    pub fn localize(&mut self, string_table: &StringTables) {
         for record in &mut self.records {
             record.localize(string_table);
         }
