@@ -17,7 +17,10 @@ impl TryInto<String> for VNAM {
     type Error = Error;
 
     fn try_into(self) -> Result<String, Self::Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+        let mut cursor = Cursor::new(&self.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -36,17 +39,6 @@ impl TryFrom<String> for VNAM {
     }
 }
 
-impl TryInto<FormID> for VNAM {
-    type Error = Error;
-
-    fn try_into(self) -> Result<FormID, Self::Error> {
-        let mut cursor = Cursor::new(&self.data);
-        let parsed = FormID::read_le(&mut cursor)?;
-        check_done_reading(&mut cursor)?;
-        Ok(parsed)
-    }
-}
-
 impl TryFrom<FormID> for VNAM {
     type Error = Error;
 
@@ -59,5 +51,26 @@ impl TryFrom<FormID> for VNAM {
             size: data.len() as u16,
             data,
         })
+    }
+}
+impl TryFrom<VNAM> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: VNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<VNAM> for f32 {
+    type Error = Error;
+
+    fn try_from(raw: VNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

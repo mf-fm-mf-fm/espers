@@ -1,8 +1,8 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::check_done_reading;
 use crate::error::Error;
 use crate::fields::{CNAM, EDID};
-use binrw::binrw;
-use binrw::BinRead;
+use binrw::{binrw, BinRead};
 use rgb::RGBA8;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -43,6 +43,8 @@ impl TryFrom<KYWD> for Keyword {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,

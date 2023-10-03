@@ -1,9 +1,8 @@
 use super::{get_cursor, Flags, RecordHeader};
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use crate::fields::{ObjectBounds, BNAM, EDID, OBND, RDAT, SNAM};
-use binrw::binrw;
-use binrw::BinRead;
+use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use std::io::Cursor;
@@ -55,6 +54,8 @@ impl TryFrom<ASPC> for AcousticSpace {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,

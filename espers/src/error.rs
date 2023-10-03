@@ -4,16 +4,16 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("I/O Error")]
+    #[error("I/O error")]
     IOError(#[from] io::Error),
 
-    #[error("Binary Parse Error")]
+    #[error("Binary parse error: {}", _0)]
     BinaryParseError(#[from] binrw::Error),
 
-    #[error("UTF-8 Parse Error")]
+    #[error("UTF-8 parse error")]
     Utf8ParseError(#[from] Utf8Error),
 
-    #[error("ISO-8859-1 Parse Error")]
+    #[error("ISO-8859-1 parse error")]
     ISO88591ParseError(u32),
 
     #[error("String EOF")]

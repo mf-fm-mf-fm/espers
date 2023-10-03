@@ -1,6 +1,5 @@
 use crate::error::Error;
 use crate::records::{RawRecord, Record};
-use crate::string_table::StringTables;
 use binrw::{binrw, io::Cursor, until_eof, Endian};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -43,26 +42,25 @@ pub struct GRUP {
     pub localized: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug)]
 pub struct Group {
     pub header: GroupHeader,
-    pub records: Vec<Record>,
+    pub records: Vec<Result<Record, Error>>,
 }
 
 impl Group {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        for record in &mut self.records {
-            record.localize(string_table);
-        }
-    }
-
     pub fn magics(&self) -> Vec<String> {
         let mut magics = Vec::new();
 
         for rec in &self.records {
-            let magic = String::from_utf8_lossy(&rec.magic()).to_string();
-            if !magics.contains(&magic) {
-                magics.push(magic);
+            match rec {
+                Ok(rec) => {
+                    let magic = String::from_utf8_lossy(&rec.magic()).to_string();
+                    if !magics.contains(&magic) {
+                        magics.push(magic);
+                    }
+                }
+                Err(_) => continue,
             }
         }
 
@@ -83,11 +81,11 @@ impl TryFrom<GRUP> for Group {
         let mut cursor = Cursor::new(&raw.data);
         let args = (raw.localized,);
         let recs: Vec<RawRecord> = until_eof(&mut cursor, Endian::Little, args)?;
-        let records: Result<Vec<Record>, _> = recs.into_iter().map(Record::try_from).collect();
+        let records: Vec<_> = recs.into_iter().map(TryInto::try_into).collect();
 
         Ok(Self {
             header: raw.header,
-            records: records?,
+            records,
         })
     }
 }

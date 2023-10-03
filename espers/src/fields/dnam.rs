@@ -44,3 +44,14 @@ impl TryFrom<DNAM> for u32 {
         Ok(result)
     }
 }
+
+impl<const N: usize> TryFrom<DNAM> for [u8; N] {
+    type Error = Error;
+
+    fn try_from(raw: DNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}

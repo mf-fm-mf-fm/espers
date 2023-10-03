@@ -1,9 +1,7 @@
 use binrw::BinWrite;
 use binrw::__private::Required;
 use glob::glob;
-use std::env::var;
 use std::io::Cursor;
-use std::path::PathBuf;
 
 fn serialize<T: BinWrite>(rec: &T) -> Vec<u8>
 where
@@ -15,9 +13,7 @@ where
 }
 
 fn list_dir() -> Vec<String> {
-    let dir = PathBuf::from(var("SKYRIM_DATA_DIR").unwrap()).join("*.es[mp]");
-
-    glob(dir.to_str().unwrap())
+    glob("assets/skyrim/*.es[mp]")
         .unwrap()
         .into_iter()
         .map(|f| format!("{}", f.unwrap().display()))

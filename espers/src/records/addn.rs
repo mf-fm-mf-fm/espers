@@ -1,7 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
-use crate::fields::{ObjectBounds, Unknown4, DATA, DNAM, EDID, MODL, MODT, OBND, SNAM};
+use crate::fields::{Model, ObjectBounds, DATA, DNAM, EDID, MODL, MODS, MODT, OBND, SNAM};
 use binrw::{binrw, BinRead};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -44,8 +44,7 @@ pub struct AddonNode {
     pub header: RecordHeader,
     pub edid: String,
     pub bounds: ObjectBounds,
-    pub model_filename: String,
-    pub model_textures: Vec<Unknown4>,
+    pub model: Model,
     pub addon_node_index: u32,
     pub ambient_sound: Option<FormID>,
     pub particle_system_cap: u16,
@@ -67,12 +66,7 @@ impl TryFrom<ADDN> for AddonNode {
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
         let bounds = OBND::read(&mut cursor)?.try_into()?;
-        let model_filename = MODL::read(&mut cursor)?.try_into()?;
-        let modt = MODT::read(&mut cursor)?;
-        let model_textures = match modt.clone().try_into() {
-            Ok(modt) => modt,
-            Err(err) => panic!("{} - {:?}", err, modt.data),
-        };
+        let model = Model::load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let addon_node_index = DATA::read(&mut cursor)?.try_into()?;
         let ambient_sound = SNAM::read(&mut cursor)
             .ok()
@@ -86,8 +80,7 @@ impl TryFrom<ADDN> for AddonNode {
             header: raw.header,
             edid,
             bounds,
-            model_filename,
-            model_textures,
+            model,
             addon_node_index,
             ambient_sound,
             particle_system_cap,

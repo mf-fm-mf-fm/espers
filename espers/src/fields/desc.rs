@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{common::check_done_reading, error::Error};
 use binrw::{binrw, io::Cursor, BinRead, NullString};
 use serde_derive::{Deserialize, Serialize};
 
@@ -12,19 +12,24 @@ pub struct DESC {
     pub data: Vec<u8>,
 }
 
-impl TryInto<String> for DESC {
+impl TryFrom<DESC> for String {
     type Error = Error;
 
-    fn try_into(self) -> Result<String, Self::Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+    fn try_from(raw: DESC) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
-impl TryInto<u32> for DESC {
+impl TryFrom<DESC> for u32 {
     type Error = Error;
 
-    fn try_into(self) -> Result<u32, Self::Error> {
-        let mut cursor = Cursor::new(&self.data);
-        Ok(u32::read_le(&mut cursor)?)
+    fn try_from(raw: DESC) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

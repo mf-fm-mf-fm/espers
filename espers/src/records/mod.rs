@@ -243,7 +243,6 @@ pub use wrld::{World, WRLD};
 pub use wthr::{Weather, WTHR};
 
 use crate::error::Error;
-use crate::string_table::StringTables;
 
 use binrw::binrw;
 use bitflags::bitflags;
@@ -296,11 +295,11 @@ pub enum RawRecord {
     ARTO(ARTO),
     ASPC(ASPC),
     ASTP(ASTP),
-    AVIF(AVIF),
+    AVIF(#[br(args(localized))] AVIF),
     BOOK(#[br(args(localized))] BOOK),
-    BPTD(BPTD),
+    BPTD(#[br(args(localized))] BPTD),
     CAMS(CAMS),
-    CELL(CELL),
+    CELL(#[br(args(localized))] CELL),
     CLAS(#[br(args(localized))] CLAS),
     CLFM(#[br(args(localized))] CLFM),
     CLMT(CLMT),
@@ -310,7 +309,7 @@ pub enum RawRecord {
     CPTH(CPTH),
     CSTY(CSTY),
     DEBR(DEBR),
-    DIAL(DIAL),
+    DIAL(#[br(args(localized))] DIAL),
     DLBR(DLBR),
     DLVW(DLVW),
     DOBJ(DOBJ),
@@ -322,7 +321,7 @@ pub enum RawRecord {
     EQUP(EQUP),
     EXPL(#[br(args(localized))] EXPL),
     EYES(#[br(args(localized))] EYES),
-    FACT(FACT),
+    FACT(#[br(args(localized))] FACT),
     FLOR(#[br(args(localized))] FLOR),
     FLST(FLST),
     FSTP(FSTP),
@@ -369,12 +368,12 @@ pub enum RawRecord {
     NPC_(NPC_),
     OTFT(OTFT),
     PACK(PACK),
-    PERK(PERK),
+    PERK(#[br(args(localized))] PERK),
     PGRE(PGRE),
     PHZD(PHZD),
     PROJ(PROJ),
     QUST(QUST),
-    RACE(RACE),
+    RACE(#[br(args(localized))] RACE),
     REFR(REFR),
     REGN(REGN),
     RELA(RELA),
@@ -405,7 +404,7 @@ pub enum RawRecord {
     WTHR(WTHR),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum Record {
     AIPackage(AIPackage),
     AcousticSpace(AcousticSpace),
@@ -796,18 +795,6 @@ impl fmt::Display for Record {
 }
 
 impl Record {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        match self {
-            Record::Alchemy(x) => x.localize(string_table),
-            Record::Book(x) => x.localize(string_table),
-            Record::Class(x) => x.localize(string_table),
-            Record::Color(x) => x.localize(string_table),
-            Record::Group(x) => x.localize(string_table),
-            Record::GameSetting(x) => x.localize(string_table),
-            _ => {}
-        }
-    }
-
     pub fn magic(&self) -> [u8; 4] {
         match self {
             Record::Action(_) => *b"AACT",

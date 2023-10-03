@@ -2,8 +2,8 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    DestructionData, Model, ObjectBounds, ScriptList, EDID, FNAM, FULL, KSIZ, KWDA, OBND, PFIG,
-    PFPC, PNAM, RNAM, SNAM, VMAD,
+    DestructionData, Model, ObjectBounds, ScriptList, EDID, FNAM, FULL, KSIZ, KWDA, MODL, MODS,
+    MODT, OBND, PFIG, PFPC, PNAM, RNAM, SNAM, VMAD,
 };
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ impl TryFrom<FLOR> for Flora {
             (f, true) => LocalizedString::Localized(f.try_into()?),
             (z, false) => LocalizedString::ZString(z.try_into()?),
         };
-        let model = Model::load(&mut cursor, raw.header.internal_version)?;
+        let model = Model::load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let destruction_data = DestructionData::load(&mut cursor)?;
         let keyword_count: Option<u32> = KSIZ::read(&mut cursor)
             .ok()

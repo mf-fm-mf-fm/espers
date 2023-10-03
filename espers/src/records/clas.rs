@@ -2,7 +2,6 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, LocalizedString};
 use crate::error::Error;
 use crate::fields::{DATA, DESC, EDID, FULL, ICON};
-use crate::string_table::StringTables;
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -56,22 +55,6 @@ pub struct Class {
     pub description: LocalizedString,
     pub icon: Option<String>,
     pub data: ClassData,
-}
-
-impl Class {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        if let LocalizedString::Localized(l) = self.full_name {
-            if let Some(s) = string_table.get_string(&l) {
-                self.full_name = LocalizedString::ZString(s.clone());
-            }
-        }
-
-        if let LocalizedString::Localized(l) = self.description {
-            if let Some(s) = string_table.get_string(&l) {
-                self.description = LocalizedString::ZString(s.clone());
-            }
-        }
-    }
 }
 
 impl fmt::Display for Class {

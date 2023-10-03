@@ -49,7 +49,7 @@ fn get_str(raw: &RawStringTable, offset: usize, length_prefixed: bool) -> Result
         let mut cursor = Cursor::new(&raw.data[offset..offset + 4]);
         let length = u32::read_le(&mut cursor)? as usize;
 
-        &raw.data[offset + 4..offset + 4 + length]
+        &raw.data[offset + 4..offset + 4 + length - 1]
     } else {
         let end = raw.data[offset..]
             .iter()
@@ -63,7 +63,7 @@ fn get_str(raw: &RawStringTable, offset: usize, length_prefixed: bool) -> Result
     Ok(s.into())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum TableType {
     STRINGS,
     DLSTRINGS,
@@ -92,13 +92,13 @@ impl TableType {
 pub struct StringID(u32);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Offset(u32);
+pub struct Offset(usize);
 
 #[derive(Debug)]
 pub struct StringTable {
-    strings: Vec<String>,
-    offsets: HashMap<StringID, usize>,
     length_prefixed: bool,
+    strings: Vec<String>,
+    offsets: HashMap<StringID, Offset>,
 }
 
 impl StringTable {
@@ -118,8 +118,7 @@ impl StringTable {
             .collect::<Vec<_>>();
         offset_to_index.sort();
         for offset in &offset_to_index {
-            let asdf = get_str(&rst, *offset as usize, length_prefixed)?;
-            strings.push(asdf);
+            strings.push(get_str(&rst, *offset as usize, length_prefixed)?);
         }
 
         let offset_indices = offset_to_index
@@ -129,13 +128,16 @@ impl StringTable {
             .collect::<HashMap<_, _>>();
 
         for entry in &rst.entries {
-            offsets.insert(StringID(entry.string_id), offset_indices[&entry.offset]);
+            offsets.insert(
+                StringID(entry.string_id),
+                Offset(offset_indices[&entry.offset]),
+            );
         }
 
         Ok(Self {
+            length_prefixed,
             strings,
             offsets,
-            length_prefixed,
         })
     }
 
@@ -148,19 +150,17 @@ impl StringTable {
             let encoded = WINDOWS_1252.encode(string).0.to_vec();
             offsets.push(data.len() as u32);
             if self.length_prefixed {
-                data.extend_from_slice(&(encoded.len() as u32).to_le_bytes());
+                data.extend_from_slice(&(encoded.len() as u32 + 1).to_le_bytes());
             }
             data.extend_from_slice(&encoded);
-            if !self.length_prefixed {
-                data.push(0);
-            }
+            data.push(0);
         }
         let mut index_to_offset = self.offsets.iter().collect::<Vec<_>>();
         index_to_offset.sort();
         for (string_id, offset) in index_to_offset {
             entries.push(DirectoryEntry {
                 string_id: string_id.0,
-                offset: offsets[*offset],
+                offset: offsets[offset.0],
             });
         }
 
@@ -178,7 +178,7 @@ impl StringTable {
     }
 
     pub fn get_string(&self, id: &u32) -> Option<&String> {
-        self.strings.get(self.offsets[&StringID(*id)])
+        self.strings.get(self.offsets.get(&StringID(*id))?.0)
     }
 }
 
@@ -195,7 +195,8 @@ impl StringTables {
 
     pub fn load_plugin_path(&mut self, path: &str, language: &str) -> Result<(), Error> {
         let path = PathBuf::from(path);
-        let plugin_name = path.file_stem().unwrap().to_string_lossy();
+        let plugin_stem = path.file_stem().unwrap().to_string_lossy();
+        let plugin_name = path.file_name().unwrap().to_string_lossy();
         let dir = path.parent().unwrap().join("Strings");
 
         use TableType::*;
@@ -203,14 +204,23 @@ impl StringTables {
         for suffix in [STRINGS, DLSTRINGS, ILSTRINGS] {
             let full_path = dir.join(format!(
                 "{}_{}.{}",
-                plugin_name,
+                plugin_stem,
                 language,
                 suffix.extension()
             ));
 
-            let table = StringTable::load(&full_path, suffix.length_prefixed())?;
-
-            self.tables.insert((plugin_name.to_string(), suffix), table);
+            match StringTable::load(&full_path, suffix.length_prefixed()) {
+                Ok(table) => {
+                    self.tables.insert((plugin_name.to_string(), suffix), table);
+                }
+                Err(Error::IOError(ref err)) if err.kind() == std::io::ErrorKind::NotFound => {
+                    continue;
+                }
+                Err(err) => {
+                    println!("Error loading {:?}: {}", full_path, err);
+                    continue;
+                }
+            }
         }
 
         Ok(())
@@ -223,5 +233,12 @@ impl StringTables {
             }
         }
         None
+    }
+
+    pub fn list_strings(&self, plugin: String, table_type: TableType) -> Option<&Vec<String>> {
+        match self.tables.get(&(plugin, table_type)) {
+            Some(st) => Some(&st.strings),
+            None => None,
+        }
     }
 }

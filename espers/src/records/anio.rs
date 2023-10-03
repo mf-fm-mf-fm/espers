@@ -1,7 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
 use crate::common::check_done_reading;
 use crate::error::Error;
-use crate::fields::{AlternateTextures, Textures, BNAM, EDID, MODL, MODS, MODT};
+use crate::fields::{Model, BNAM, EDID, MODL, MODS, MODT};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -21,9 +21,7 @@ pub struct ANIO {
 pub struct AnimatedObjectInfo {
     pub header: RecordHeader,
     pub edid: String,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<Textures>,
-    pub alternate_textures: Option<AlternateTextures>,
+    pub model: Model,
     pub unload_event: Option<String>,
 }
 
@@ -41,18 +39,7 @@ impl TryFrom<ANIO> for AnimatedObjectInfo {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let model_filename = MODL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt, raw.header.internal_version))
-            .transpose()?;
-        let alternate_textures = MODS::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
+        let model = Model::load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let unload_event = BNAM::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -63,9 +50,7 @@ impl TryFrom<ANIO> for AnimatedObjectInfo {
         Ok(Self {
             header: raw.header,
             edid,
-            model_filename,
-            model_textures,
-            alternate_textures,
+            model,
             unload_event,
         })
     }

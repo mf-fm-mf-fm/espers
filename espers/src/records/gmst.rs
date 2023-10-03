@@ -2,7 +2,6 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, LocalizedString};
 use crate::error::Error;
 use crate::fields::{DATA, EDID};
-use crate::string_table::StringTables;
 use binrw::{binrw, BinRead, NullString};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -37,16 +36,6 @@ pub struct GameSetting {
     pub header: RecordHeader,
     pub edid: String,
     pub value: Value,
-}
-
-impl GameSetting {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        if let Value::Str(LocalizedString::Localized(l)) = self.value {
-            if let Some(s) = string_table.get_string(&l) {
-                self.value = Value::Str(LocalizedString::ZString(s.clone()));
-            }
-        }
-    }
 }
 
 impl fmt::Display for GameSetting {

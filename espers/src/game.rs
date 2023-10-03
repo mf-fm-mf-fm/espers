@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 pub struct Game {
     plugins: HashMap<String, Plugin>,
-    _string_tables: StringTables,
+    string_tables: StringTables,
 }
 
 impl Game {
@@ -36,12 +36,9 @@ impl Game {
             }
         }
 
-        for plugin in plugins.values_mut() {
-            plugin.localize(&string_tables);
-        }
         Ok(Self {
             plugins,
-            _string_tables: string_tables,
+            string_tables,
         })
     }
 
@@ -49,7 +46,11 @@ impl Game {
         &self.plugins
     }
 
-    pub fn get_record_by_form_id(&self, fid: &FormID) -> Option<&Record> {
+    pub fn string_tables(&self) -> &StringTables {
+        &self.string_tables
+    }
+
+    pub fn get_record_by_form_id(&self, fid: &FormID) -> Option<&Result<Record, Error>> {
         for plugin in self.plugins.values() {
             let rec = plugin
                 .form_ids

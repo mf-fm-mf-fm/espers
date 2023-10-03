@@ -1,7 +1,7 @@
 use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
-use crate::fields::{Model, ObjectBounds, DATA, EDID, EITM, FULL, MNAM, OBND};
+use crate::fields::{Model, ObjectBounds, DATA, EDID, EITM, FULL, MNAM, MODL, MODS, MODT, OBND};
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
@@ -54,7 +54,7 @@ impl TryFrom<EXPL> for Explosion {
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        let model = Model::try_load(&mut cursor, raw.header.internal_version)?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let enchantment = EITM::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)

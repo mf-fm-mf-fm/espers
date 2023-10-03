@@ -3,6 +3,7 @@ use crate::Args;
 use espers::game::Game;
 use espers::plugin::Plugin;
 use espers::records::{Group, Record};
+use espers::string_table::TableType;
 use iced::{
     alignment::Horizontal,
     event, executor, keyboard,
@@ -42,6 +43,7 @@ pub struct VespersApp {
     debug_mode: bool,
     plugin_names: Vec<String>,
     selected_plugin: usize,
+    display_strings: Option<TableType>,
 }
 
 impl VespersApp {
@@ -49,15 +51,20 @@ impl VespersApp {
         &self.game.plugins()[&self.plugin_names[self.selected_plugin]]
     }
 
-    fn selected(&self) -> Option<&Record> {
+    fn selected(&self) -> Option<&Result<Record, espers::error::Error>> {
         let plugin = self.get_active_plugin();
-        let mut selected: Option<&Record> = None;
+        let mut selected: Option<&Result<Record, espers::error::Error>> = None;
 
         for i in &self.state {
             selected = match selected {
-                Some(Record::Group(g)) => Some(&g.records[*i]),
+                Some(Ok(Record::Group(g))) => Some(&g.records[*i]),
+                Some(Err(_)) => None,
                 Some(_) => unreachable!("This should not happen!"),
                 None => Some(&plugin.records[*i]),
+            };
+
+            if selected.is_none() {
+                break;
             }
         }
         selected
@@ -70,11 +77,11 @@ impl VespersApp {
         for i in &self.state {
             selected = match selected {
                 Some(g) => match &g.records[*i] {
-                    Record::Group(g) => Some(g),
+                    Ok(Record::Group(g)) => Some(g),
                     _ => break,
                 },
                 None => match &plugin.records[*i] {
-                    Record::Group(g) => Some(g),
+                    Ok(Record::Group(g)) => Some(g),
                     _ => break,
                 },
             }
@@ -85,13 +92,14 @@ impl VespersApp {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    LeftPaneScroll(scrollable::RelativeOffset),
-    RightPaneScroll(scrollable::RelativeOffset),
+    LeftPaneScroll(scrollable::Viewport),
+    RightPaneScroll(scrollable::Viewport),
     Click(usize),
     Back,
     ToggleTheme,
     ToggleDebugMode,
     TabSelected(usize),
+    SetDisplayStrings(Option<TableType>),
 }
 
 impl Application for VespersApp {
@@ -114,6 +122,7 @@ impl Application for VespersApp {
                 debug_mode: false,
                 plugin_names,
                 selected_plugin: 0,
+                display_strings: None,
             },
             Command::none(),
         )
@@ -127,23 +136,23 @@ impl Application for VespersApp {
         match message {
             Message::Click(i) => {
                 match self.selected() {
-                    Some(Record::Group(_)) | None => self.state.push(i),
+                    Some(Ok(Record::Group(_))) | None => self.state.push(i),
                     Some(_) => *self.state.last_mut().unwrap() = i,
                 }
                 self.right_scroll_offset = scrollable::RelativeOffset::START;
                 scrollable::snap_to(SCROLLABLE_RIGHT.clone(), self.right_scroll_offset)
             }
-            Message::LeftPaneScroll(offset) => {
-                self.left_scroll_offset = offset;
+            Message::LeftPaneScroll(viewport) => {
+                self.left_scroll_offset = viewport.relative_offset();
                 Command::none()
             }
-            Message::RightPaneScroll(offset) => {
-                self.right_scroll_offset = offset;
+            Message::RightPaneScroll(viewport) => {
+                self.right_scroll_offset = viewport.relative_offset();
                 Command::none()
             }
             Message::Back => {
                 match self.selected() {
-                    Some(Record::Group(_)) | None => {}
+                    Some(Ok(Record::Group(_))) | None => {}
                     Some(_) => {
                         self.state.pop();
                     }
@@ -169,34 +178,65 @@ impl Application for VespersApp {
                 self.state = Vec::new();
                 Command::none()
             }
+            Message::SetDisplayStrings(val) => {
+                self.display_strings = val;
+                Command::none()
+            }
         }
     }
 
     fn view(&self) -> Element<Message> {
         let plugin = self.get_active_plugin();
-        let selected = match self.selected_group() {
-            Some(g) => &g.records,
-            None => &plugin.records,
-        };
 
-        let items: Vec<Element<Message>> = selected
-            .iter()
-            .enumerate()
-            .map(|(i, x)| {
-                button(text(if let Record::Group(g) = x {
-                    format!(
-                        "Group - {} items ({})",
-                        g.records.len(),
-                        g.magics().join(", ")
-                    )
-                } else {
-                    format!("{}", x)
-                }))
-                .on_press(Message::Click(i))
-                .width(Length::Fill)
-                .into()
-            })
-            .collect();
+        let items: Vec<Element<Message>> = match self.display_strings {
+            Some(table_type) => {
+                let plugin_name = &self.plugin_names[self.selected_plugin];
+                let strings = self
+                    .game
+                    .string_tables()
+                    .list_strings(plugin_name.into(), table_type);
+
+                match strings {
+                    Some(i) => i
+                        .iter()
+                        .map(|s| button(text(s)).width(Length::Fill).into())
+                        .collect(),
+                    None => [].into(),
+                }
+            }
+            None => {
+                let selected = match self.selected_group() {
+                    Some(g) => &g.records,
+                    None => &plugin.records,
+                };
+
+                selected
+                    .iter()
+                    .enumerate()
+                    .map(|(i, x)| {
+                        let t = match x {
+                            Ok(Record::Group(g)) => {
+                                format!(
+                                    "Group - {} items ({})",
+                                    g.records.len(),
+                                    g.magics().join(", ")
+                                )
+                            }
+                            Ok(other) => {
+                                format!("{}", other)
+                            }
+                            Err(err) => {
+                                format!("ERR: {}", err)
+                            }
+                        };
+                        button(text(t))
+                            .on_press(Message::Click(i))
+                            .width(Length::Fill)
+                            .into()
+                    })
+                    .collect()
+            }
+        };
 
         let displayed: Element<Message> = match self.selected() {
             Some(ref rec) => rec.to_iced(&self.game).into(),
@@ -206,14 +246,14 @@ impl Application for VespersApp {
                 .into(),
         };
 
-        let tab_bar = self
-            .game
-            .plugins()
-            .keys()
-            .fold(
-                TabBar::new(self.selected_plugin, |x| Message::TabSelected(x)),
-                |tab_bar, name| tab_bar.push(TabLabel::Text(name.clone())),
-            )
+        let mut tab_bar: Vec<_> = self.game.plugins().keys().collect();
+        tab_bar.sort();
+        let tab_bar = tab_bar
+            .into_iter()
+            .fold(TabBar::new(Message::TabSelected), |tab_bar, tab_label| {
+                let idx = tab_bar.size();
+                tab_bar.push(idx, TabLabel::Text(tab_label.clone()))
+            })
             .tab_width(Length::Shrink)
             .spacing(8.0)
             .padding(8.0)
@@ -238,15 +278,28 @@ impl Application for VespersApp {
         .align_items(Alignment::Start)
         .width(Length::Fill);
 
+        let assets_row = row![
+            button(text("Main Assets")).on_press(Message::SetDisplayStrings(None)),
+            button(text("Strings")).on_press(Message::SetDisplayStrings(Some(TableType::STRINGS))),
+            button(text("DL Strings"))
+                .on_press(Message::SetDisplayStrings(Some(TableType::DLSTRINGS))),
+            button(text("IL Strings"))
+                .on_press(Message::SetDisplayStrings(Some(TableType::ILSTRINGS)))
+        ]
+        .spacing(20)
+        .padding(10)
+        .align_items(Alignment::Start)
+        .width(Length::Fill);
+
         let display_row = row![
             scrollable(
                 Column::with_children(items)
-                    .width(Length::Fill)
                     .align_items(Alignment::Start)
                     .spacing(8),
             )
             .height(Length::Fill)
-            .vertical_scroll(Properties::new().scroller_width(10))
+            .width(Length::Fill)
+            .direction(scrollable::Direction::Vertical(Properties::new()))
             .id(SCROLLABLE_LEFT.clone())
             .on_scroll(Message::LeftPaneScroll),
             scrollable(
@@ -255,7 +308,8 @@ impl Application for VespersApp {
                     .align_items(Alignment::Start),
             )
             .height(Length::Fill)
-            .vertical_scroll(Properties::new().scroller_width(10))
+            .width(Length::Fill)
+            .direction(scrollable::Direction::Vertical(Properties::new()))
             .id(SCROLLABLE_RIGHT.clone())
             .on_scroll(Message::RightPaneScroll),
         ]
@@ -264,6 +318,9 @@ impl Application for VespersApp {
         let ui: Element<Message> = container(
             Column::with_children(vec![
                 tab_bar.into(),
+                container(assets_row)
+                    .style(ContainerTheme::Custom(Box::new(ContainerSS)))
+                    .into(),
                 container(title_row)
                     .style(ContainerTheme::Custom(Box::new(ContainerSS)))
                     .into(),

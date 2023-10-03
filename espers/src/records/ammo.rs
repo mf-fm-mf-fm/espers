@@ -1,9 +1,9 @@
 use super::{get_cursor, Flags, RecordHeader};
-use crate::common::{FormID, LocalizedString};
+use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    DestructionData, ObjectBounds, Textures, DATA, DESC, EDID, FULL, ICON, KSIZ, KWDA, MICO, MODL,
-    MODT, OBND, ONAM, YNAM, ZNAM,
+    DestructionData, Model, ObjectBounds, DATA, DESC, EDID, FULL, ICON, KSIZ, KWDA, MICO, MODL,
+    MODS, MODT, OBND, ONAM, YNAM, ZNAM,
 };
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -31,8 +31,7 @@ pub struct Ammo {
     pub edid: Option<String>,
     pub bounds: ObjectBounds,
     pub full_name: Option<LocalizedString>,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<Textures>,
+    pub model: Option<Model>,
     pub icon: Option<String>,
     pub message_icon: Option<String>,
     pub destruction_data: Option<DestructionData>,
@@ -67,14 +66,7 @@ impl TryFrom<AMMO> for Ammo {
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        let model_filename = MODL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt, raw.header.internal_version))
-            .transpose()?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let icon = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -121,13 +113,14 @@ impl TryFrom<AMMO> for Ammo {
             (Err(_), _) => None,
         };
 
+        check_done_reading(&mut cursor)?;
+
         Ok(Self {
             header: raw.header,
             edid,
             bounds,
             full_name,
-            model_filename,
-            model_textures,
+            model,
             icon,
             message_icon,
             destruction_data,

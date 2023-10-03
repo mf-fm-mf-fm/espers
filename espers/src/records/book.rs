@@ -3,9 +3,8 @@ use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
     DestructionData, Model, ObjectBounds, ScriptList, CNAM, DATA, DESC, EDID, FULL, ICON, INAM,
-    KSIZ, KWDA, MICO, OBND, VMAD, YNAM, ZNAM,
+    KSIZ, KWDA, MICO, MODL, MODS, MODT, OBND, VMAD, YNAM, ZNAM,
 };
-use crate::string_table::StringTables;
 use binrw::{binrw, BinRead};
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -53,6 +52,7 @@ impl TryFrom<DATA> for BookData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BOOK {
     pub header: RecordHeader,
+
     #[br(count = header.size)]
     pub data: Vec<u8>,
 
@@ -81,28 +81,6 @@ pub struct Book {
     pub description: LocalizedString,
 }
 
-impl Book {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        if let Some(LocalizedString::Localized(l)) = self.full_name {
-            if let Some(s) = string_table.get_string(&l) {
-                self.full_name = Some(LocalizedString::ZString(s.clone()));
-            }
-        }
-
-        if let LocalizedString::Localized(l) = self.text {
-            if let Some(s) = string_table.get_string(&l) {
-                self.text = LocalizedString::ZString(s.clone());
-            }
-        }
-
-        if let LocalizedString::Localized(l) = self.description {
-            if let Some(s) = string_table.get_string(&l) {
-                self.description = LocalizedString::ZString(s.clone());
-            }
-        }
-    }
-}
-
 impl fmt::Display for Book {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Book ({})", self.edid)
@@ -127,7 +105,7 @@ impl TryFrom<BOOK> for Book {
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        let model = Model::try_load(&mut cursor, raw.header.internal_version)?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let inventory_image = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)

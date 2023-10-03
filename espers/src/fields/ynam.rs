@@ -1,4 +1,4 @@
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -13,10 +13,24 @@ pub struct YNAM {
     pub data: Vec<u8>,
 }
 
-impl TryInto<FormID> for YNAM {
+impl TryFrom<YNAM> for FormID {
     type Error = Error;
 
-    fn try_into(self) -> Result<FormID, Error> {
-        Ok(FormID::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: YNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<YNAM> for u32 {
+    type Error = Error;
+
+    fn try_from(raw: YNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

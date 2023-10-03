@@ -2,7 +2,8 @@
 mod tests {
     use espers::string_table::StringTables;
     use glob::glob;
-    use std::fs::{read, write};
+    use std::fs::read;
+    use std::path::PathBuf;
 
     #[test]
     pub fn test_read_write_match() {
@@ -25,15 +26,12 @@ mod tests {
 
             for ((p, tt), table) in string_tables.tables {
                 println!("{:?} - {:?}", path, tt);
+                let plugin_path = PathBuf::from(&p);
+                let plugin_stem = plugin_path.file_stem().unwrap().to_string_lossy();
                 let serialized = table.serialize().unwrap();
-                write(
-                    format!("{}_{}.{}", p, language, tt.extension()),
-                    serialized.clone(),
-                )
-                .unwrap();
                 let raw_path = path.parent().unwrap().join(format!(
                     "Strings/{}_{}.{}",
-                    p,
+                    plugin_stem,
                     language,
                     tt.extension()
                 ));

@@ -2,8 +2,8 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    DestructionData, ObjectBounds, ScriptList, Textures, DATA, DESC, EDID, FULL, ICON, MICO, MODL,
-    MODT, OBND, QUAL, VMAD, YNAM, ZNAM,
+    DestructionData, Model, ObjectBounds, ScriptList, DATA, DESC, EDID, FULL, ICON, MICO, MODL,
+    MODS, MODT, OBND, QUAL, VMAD, YNAM, ZNAM,
 };
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -51,8 +51,7 @@ pub struct Apparatus {
     pub scripts: Option<ScriptList>,
     pub bounds: ObjectBounds,
     pub full_name: LocalizedString,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<Textures>,
+    pub model: Option<Model>,
     pub icon: Option<String>,
     pub message_icon: Option<String>,
     pub destruction_data: Option<DestructionData>,
@@ -88,14 +87,7 @@ impl TryFrom<APPA> for Apparatus {
         } else {
             LocalizedString::ZString(FULL::read(&mut cursor)?.try_into()?)
         };
-        let model_filename = MODL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt, raw.header.internal_version))
-            .transpose()?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let icon = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -129,8 +121,7 @@ impl TryFrom<APPA> for Apparatus {
             scripts,
             bounds,
             full_name,
-            model_filename,
-            model_textures,
+            model,
             icon,
             message_icon,
             destruction_data,

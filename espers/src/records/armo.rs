@@ -2,10 +2,9 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    AlternateTextures, BodyTemplate, BodyTemplate2, DestructionData, ObjectBounds, ScriptList,
-    Textures, BAMT, BIDS, BMCT, BOD2, BODT, DATA, DESC, DNAM, EAMT, EDID, EITM, ETYP, FULL, ICO2,
-    ICON, KSIZ, KWDA, MIC2, MICO, MO2S, MO2T, MO4S, MO4T, MOD2, MOD4, MODL, MODS, MODT, OBND, RNAM,
-    TNAM, VMAD, YNAM, ZNAM,
+    BodyTemplate, BodyTemplate2, DestructionData, Model, ObjectBounds, ScriptList, BAMT, BIDS,
+    BMCT, BOD2, BODT, DATA, DESC, DNAM, EAMT, EDID, EITM, ETYP, FULL, ICO2, ICON, KSIZ, KWDA, MIC2,
+    MICO, MO2S, MO2T, MO4S, MO4T, MOD2, MOD4, MODL, MODS, MODT, OBND, RNAM, TNAM, VMAD, YNAM, ZNAM,
 };
 use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -55,17 +54,11 @@ pub struct Armor {
     pub full_name: Option<LocalizedString>,
     pub enchantment: Option<FormID>,
     pub enchantment_amount: Option<u16>,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<Textures>,
-    pub alternate_textures: Option<AlternateTextures>,
-    pub male_model_filename: Option<String>,
-    pub male_model_textures: Option<Textures>,
-    pub male_alternate_textures: Option<AlternateTextures>,
+    pub model: Option<Model>,
+    pub male_model: Option<Model>,
     pub male_inventory_image: Option<String>,
     pub male_message_image: Option<String>,
-    pub female_model_filename: Option<String>,
-    pub female_model_textures: Option<Textures>,
-    pub female_alternate_textures: Option<AlternateTextures>,
+    pub female_model: Option<Model>,
     pub female_inventory_image: Option<String>,
     pub female_message_image: Option<String>,
     pub body_template: Option<BodyTemplate>,
@@ -121,30 +114,9 @@ impl TryFrom<ARMO> for Armor {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let model_filename = MODL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt, raw.header.internal_version))
-            .transpose()?;
-        let alternate_textures = MODS::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let male_model_filename = MOD2::read(&mut cursor)
-            .ok()
-            .map(|m| MODL::from(m).try_into())
-            .transpose()?;
-        let male_model_textures = MO2T::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt.into(), raw.header.internal_version))
-            .transpose()?;
-        let male_alternate_textures = MO2S::read(&mut cursor)
-            .ok()
-            .map(|m| Into::<MODS>::into(m).try_into())
-            .transpose()?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
+        let male_model =
+            Model::try_load::<MOD2, MO2T, MO2S>(&mut cursor, raw.header.internal_version)?;
         let male_inventory_image = ICON::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -153,18 +125,8 @@ impl TryFrom<ARMO> for Armor {
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
-        let female_model_filename = MOD4::read(&mut cursor)
-            .ok()
-            .map(|m| Into::<MODL>::into(m).try_into())
-            .transpose()?;
-        let female_model_textures = MO4T::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt.into(), raw.header.internal_version))
-            .transpose()?;
-        let female_alternate_textures = MO4S::read(&mut cursor)
-            .ok()
-            .map(|m| Into::<MODS>::into(m).try_into())
-            .transpose()?;
+        let female_model =
+            Model::try_load::<MOD4, MO4T, MO4S>(&mut cursor, raw.header.internal_version)?;
         let female_inventory_image = ICO2::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
@@ -246,17 +208,11 @@ impl TryFrom<ARMO> for Armor {
             full_name,
             enchantment,
             enchantment_amount,
-            model_filename,
-            model_textures,
-            alternate_textures,
-            male_model_filename,
-            male_model_textures,
-            male_alternate_textures,
+            model,
+            male_model,
             male_inventory_image,
             male_message_image,
-            female_model_filename,
-            female_model_textures,
-            female_alternate_textures,
+            female_model,
             female_inventory_image,
             female_message_image,
             body_template,

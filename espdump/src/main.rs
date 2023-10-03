@@ -23,10 +23,14 @@ pub fn dump(group: &Group, indent: usize) {
 
     for record in &group.records {
         match record {
-            Record::Group(g) => dump(g, indent + 1),
-            record => {
+            Ok(Record::Group(g)) => dump(g, indent + 1),
+            Ok(record) => {
                 let i = indent + 1;
-                println!("{:i$}{}", "", record)
+                println!("{:i$}{}", "", record);
+            }
+            Err(err) => {
+                let i = indent + 1;
+                println!("{:i$}Error reading file: {}", "", err);
             }
         }
     }
@@ -40,7 +44,7 @@ pub fn main() -> Result<(), Error> {
 
     if !args.quiet {
         for record in plugin.records {
-            if let Record::Group(g) = record {
+            if let Ok(Record::Group(g)) = record {
                 dump(&g, 0);
             }
         }

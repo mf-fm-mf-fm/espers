@@ -1,5 +1,5 @@
 use super::{get_cursor, Flags, RecordHeader};
-use crate::common::FormID;
+use crate::common::{FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
     CrimeGold, CRGR, CRVA, DATA, EDID, FULL, JAIL, JOUT, PLCN, STOL, VENV, WAIT, XNAM,
@@ -10,20 +10,25 @@ use std::fmt;
 use std::io::Cursor;
 
 #[binrw]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[br(import(localized: bool))]
 #[brw(little, magic = b"FACT")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FACT {
     pub header: RecordHeader,
 
     #[br(count = header.size)]
     pub data: Vec<u8>,
+
+    #[br(calc(localized))]
+    #[bw(ignore)]
+    pub localized: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Faction {
     pub header: RecordHeader,
     pub edid: String,
-    pub full_name: Option<String>,
+    pub full_name: Option<LocalizedString>,
     pub xnams: Vec<XNAM>,
     pub flags: DATA,
     pub jail: Option<FormID>,
@@ -50,10 +55,11 @@ impl TryFrom<FACT> for Faction {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let full_name = FULL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
+        let full_name = match (FULL::read(&mut cursor), raw.localized) {
+            (Ok(f), true) => Some(LocalizedString::Localized(f.try_into()?)),
+            (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
+            (Err(_), _) => None,
+        };
         let mut xnams = Vec::new();
 
         while let Ok(x) = XNAM::read(&mut cursor) {

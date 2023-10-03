@@ -60,3 +60,14 @@ impl TryFrom<PNAM> for Vec<FormID> {
         Ok(result)
     }
 }
+
+impl TryFrom<PNAM> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: PNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}

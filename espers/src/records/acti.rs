@@ -2,10 +2,9 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, FormID, LocalizedString};
 use crate::error::Error;
 use crate::fields::{
-    AlternateTextures, DestructionData, ObjectBounds, ScriptList, Textures, EDID, FNAM, FULL, KNAM,
-    KSIZ, KWDA, MODL, MODS, MODT, OBND, PNAM, RNAM, SNAM, VMAD, VNAM, WNAM,
+    DestructionData, Model, ObjectBounds, ScriptList, EDID, FNAM, FULL, KNAM, KSIZ, KWDA, MODL,
+    MODS, MODT, OBND, PNAM, RNAM, SNAM, VMAD, VNAM, WNAM,
 };
-use crate::string_table::StringTable;
 use binrw::{binrw, BinRead};
 use rgb::RGBA8;
 use serde_derive::{Deserialize, Serialize};
@@ -34,9 +33,7 @@ pub struct Activator {
     pub scripts: Option<ScriptList>,
     pub bounds: ObjectBounds,
     pub full_name: Option<LocalizedString>,
-    pub model_filename: Option<String>,
-    pub model_textures: Option<Textures>,
-    pub alternate_textures: Option<AlternateTextures>,
+    pub model: Option<Model>,
     pub destruction_data: Option<DestructionData>,
     pub keywords: Vec<FormID>,
     pub marker_color: Option<RGBA8>,
@@ -46,16 +43,6 @@ pub struct Activator {
     pub activate_text_override: Option<LocalizedString>,
     pub flags: Option<u16>,
     pub interaction_keyword: Option<FormID>,
-}
-
-impl Activator {
-    pub fn localize(&mut self, string_table: &StringTable) {
-        if let Some(LocalizedString::Localized(l)) = self.full_name {
-            if let Some(s) = string_table.get_string(&l) {
-                self.full_name = Some(LocalizedString::ZString(s.clone()));
-            }
-        }
-    }
 }
 
 impl fmt::Display for Activator {
@@ -82,18 +69,7 @@ impl TryFrom<ACTI> for Activator {
             (Ok(z), false) => Some(LocalizedString::ZString(z.try_into()?)),
             (Err(_), _) => None,
         };
-        let model_filename = MODL::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
-        let model_textures = MODT::read(&mut cursor)
-            .ok()
-            .map(|modt| Textures::load(modt, raw.header.internal_version))
-            .transpose()?;
-        let alternate_textures = MODS::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
+        let model = Model::try_load::<MODL, MODT, MODS>(&mut cursor, raw.header.internal_version)?;
         let destruction_data = DestructionData::load(&mut cursor)?;
         let keyword_count: Option<u32> = KSIZ::read(&mut cursor)
             .ok()
@@ -148,9 +124,7 @@ impl TryFrom<ACTI> for Activator {
             scripts,
             bounds,
             full_name,
-            model_filename,
-            model_textures,
-            alternate_textures,
+            model,
             destruction_data,
             keywords,
             marker_color,

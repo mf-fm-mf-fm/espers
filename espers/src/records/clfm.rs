@@ -2,7 +2,6 @@ use super::{get_cursor, Flags, RecordHeader};
 use crate::common::{check_done_reading, LocalizedString};
 use crate::error::Error;
 use crate::fields::{CNAM, EDID, FNAM, FULL};
-use crate::string_table::StringTables;
 use binrw::{binrw, BinRead};
 use rgb::RGBA8;
 use serde_derive::{Deserialize, Serialize};
@@ -31,16 +30,6 @@ pub struct Color {
     pub full_name: Option<LocalizedString>,
     pub color: RGBA8,
     pub playable: u32,
-}
-
-impl Color {
-    pub fn localize(&mut self, string_table: &StringTables) {
-        if let Some(LocalizedString::Localized(l)) = self.full_name {
-            if let Some(s) = string_table.get_string(&l) {
-                self.full_name = Some(LocalizedString::ZString(s.clone()));
-            }
-        }
-    }
 }
 
 impl fmt::Display for Color {

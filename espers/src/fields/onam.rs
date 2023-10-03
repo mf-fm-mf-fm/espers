@@ -61,3 +61,14 @@ impl TryFrom<ONAM> for u32 {
         Ok(result)
     }
 }
+
+impl TryFrom<ONAM> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: ONAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
