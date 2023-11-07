@@ -28,6 +28,39 @@ macro_rules! impl_name {
             }
         }
 
+        impl TryFrom<$name> for u32 {
+            type Error = Error;
+
+            fn try_from(raw: $name) -> Result<Self, Error> {
+                let mut cursor = Cursor::new(&raw.data);
+                let result = Self::read_le(&mut cursor)?;
+                check_done_reading(&mut cursor)?;
+                Ok(result)
+            }
+        }
+
+        impl TryFrom<$name> for u16 {
+            type Error = Error;
+
+            fn try_from(raw: $name) -> Result<Self, Error> {
+                let mut cursor = Cursor::new(&raw.data);
+                let result = Self::read_le(&mut cursor)?;
+                check_done_reading(&mut cursor)?;
+                Ok(result)
+            }
+        }
+
+        impl TryFrom<$name> for (u16, u16) {
+            type Error = Error;
+
+            fn try_from(raw: $name) -> Result<Self, Error> {
+                let mut cursor = Cursor::new(&raw.data);
+                let result = Self::read_le(&mut cursor)?;
+                check_done_reading(&mut cursor)?;
+                Ok(result)
+            }
+        }
+
         impl TryFrom<$name> for String {
             type Error = Error;
 

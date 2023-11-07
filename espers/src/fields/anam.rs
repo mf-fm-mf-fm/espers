@@ -24,6 +24,17 @@ impl TryFrom<ANAM> for FormID {
     }
 }
 
+impl TryFrom<ANAM> for (FormID, FormID) {
+    type Error = Error;
+
+    fn try_from(raw: ANAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
 impl TryFrom<ANAM> for String {
     type Error = Error;
 

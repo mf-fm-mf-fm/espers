@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{common::check_done_reading, error::Error};
 use binrw::{binrw, io::Cursor, BinRead, BinWrite, NullString};
 use serde_derive::{Deserialize, Serialize};
 
@@ -11,11 +11,14 @@ pub struct EDID {
     pub data: Vec<u8>,
 }
 
-impl TryInto<String> for EDID {
+impl TryFrom<EDID> for String {
     type Error = Error;
 
-    fn try_into(self) -> Result<String, Self::Error> {
-        Ok(NullString::read_le(&mut Cursor::new(&self.data))?.to_string())
+    fn try_from(raw: EDID) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = NullString::read_le(&mut cursor)?.to_string();
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{common::check_done_reading, error::Error};
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
 
@@ -24,10 +24,13 @@ pub struct ObjectBounds {
     pub z2: i16,
 }
 
-impl TryInto<ObjectBounds> for OBND {
+impl TryFrom<OBND> for ObjectBounds {
     type Error = Error;
 
-    fn try_into(self) -> Result<ObjectBounds, Self::Error> {
-        Ok(ObjectBounds::read(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: OBND) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

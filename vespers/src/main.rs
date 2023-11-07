@@ -7,7 +7,7 @@ use clap::Parser;
 use espers::game::Game;
 use iced::{Application, Settings};
 
-/// Dump contents of *.es[mp] files
+/// Show contents of `*.es[mp]` files
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {

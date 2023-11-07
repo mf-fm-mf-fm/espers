@@ -1,4 +1,5 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::check_done_reading;
 use crate::error::Error;
 use crate::fields::{DNAM, EDID};
 use binrw::{binrw, BinRead};
@@ -22,7 +23,9 @@ impl TryFrom<DNAM> for TypeFlags {
 
     fn try_from(raw: DNAM) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        Ok(Self::read(&mut cursor)?)
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 

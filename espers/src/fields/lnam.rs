@@ -23,3 +23,14 @@ impl TryFrom<LNAM> for FormID {
         Ok(result)
     }
 }
+
+impl TryFrom<LNAM> for u32 {
+    type Error = Error;
+
+    fn try_from(raw: LNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}

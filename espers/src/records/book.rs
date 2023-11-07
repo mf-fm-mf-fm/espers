@@ -46,6 +46,7 @@ impl TryFrom<DATA> for BookData {
     }
 }
 
+/// [BOOK](https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/BOOK) record
 #[binrw]
 #[br(import(localized: bool))]
 #[brw(little, magic = b"BOOK")]
@@ -61,6 +62,7 @@ pub struct BOOK {
     pub localized: bool,
 }
 
+/// Parsed [BOOK] record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Book {
     pub header: RecordHeader,
@@ -129,19 +131,14 @@ impl TryFrom<BOOK> for Book {
             .map(TryInto::try_into)
             .transpose()?;
 
-        let keyword_count: Option<u32> = KSIZ::read(&mut cursor)
+        let _: Option<u32> = KSIZ::read(&mut cursor)
             .ok()
             .map(TryInto::try_into)
             .transpose()?;
         let mut keywords = Vec::new();
-
-        if let Some(kc) = keyword_count {
-            for _ in 0..kc {
-                // It's actually only up to keyword count
-                if let Ok(kwda) = KWDA::read(&mut cursor) {
-                    keywords.push(FormID::read_le(&mut Cursor::new(kwda.data)).unwrap());
-                }
-            }
+        while let Ok(kwda) = KWDA::read(&mut cursor) {
+            let items: Vec<_> = kwda.try_into()?;
+            keywords.extend(items);
         }
 
         let data = DATA::read(&mut cursor)?.try_into()?;

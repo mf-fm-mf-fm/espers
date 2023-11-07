@@ -1,6 +1,7 @@
-use crate::common::check_done_reading;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead, BinWrite};
+use binrw::{until_eof, Endian};
 use serde_derive::{Deserialize, Serialize};
 
 #[binrw]
@@ -29,6 +30,28 @@ impl TryFrom<DATA> for Vec<u8> {
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
         Ok(raw.data)
+    }
+}
+
+impl TryFrom<DATA> for u8 {
+    type Error = Error;
+
+    fn try_from(raw: DATA) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<DATA> for u16 {
+    type Error = Error;
+
+    fn try_from(raw: DATA) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 
@@ -81,5 +104,27 @@ impl TryFrom<f32> for DATA {
             size: data.len() as u16,
             data,
         })
+    }
+}
+
+impl TryFrom<DATA> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: DATA) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<DATA> for Vec<FormID> {
+    type Error = Error;
+
+    fn try_from(raw: DATA) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = until_eof(&mut cursor, Endian::Little, ())?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

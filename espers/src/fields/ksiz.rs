@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{common::check_done_reading, error::Error};
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
 
@@ -12,10 +12,13 @@ pub struct KSIZ {
     pub data: Vec<u8>,
 }
 
-impl TryInto<u32> for KSIZ {
+impl TryFrom<KSIZ> for u32 {
     type Error = Error;
 
-    fn try_into(self) -> Result<u32, Error> {
-        Ok(u32::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: KSIZ) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }

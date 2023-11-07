@@ -55,12 +55,14 @@ pub struct EffectCondition {
 
 impl EffectCondition {
     pub fn load(cursor: &mut Cursor<&Vec<u8>>) -> Result<Self, Error> {
-        let condition = CTDA::read(cursor)?.try_into()?;
         let condition_item_count = CITC::read(cursor).ok().map(TryInto::try_into).transpose()?;
+        let condition = CTDA::read(cursor)?.try_into()?;
+        let condition_item_count = match condition_item_count {
+            citc @ Some(_) => citc,
+            None => CITC::read(cursor).ok().map(TryInto::try_into).transpose()?,
+        };
         let param1_override = CIS1::read(cursor).ok().map(TryInto::try_into).transpose()?;
         let param2_override = CIS2::read(cursor).ok().map(TryInto::try_into).transpose()?;
-
-        check_done_reading(cursor)?;
 
         Ok(Self {
             condition,
@@ -68,5 +70,13 @@ impl EffectCondition {
             param1_override,
             param2_override,
         })
+    }
+
+    pub fn load_multiple(cursor: &mut Cursor<&Vec<u8>>) -> Result<Vec<Self>, Error> {
+        let mut items = Vec::new();
+        while let Ok(m) = Self::load(cursor) {
+            items.push(m);
+        }
+        Ok(items)
     }
 }

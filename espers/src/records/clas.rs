@@ -43,7 +43,9 @@ impl TryFrom<DATA> for ClassData {
 
     fn try_from(raw: DATA) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        Ok(Self::read(&mut cursor)?)
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 

@@ -1,12 +1,13 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::check_done_reading;
 use crate::error::Error;
-use crate::fields::{ObjectBounds, EDID, OBND};
-use binrw::binrw;
-use binrw::BinRead;
+use crate::fields::{EDID, FLTV, FNAM};
+use binrw::{binrw, BinRead};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use std::io::Cursor;
 
+/// [GLOB](https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/GLOB) record
 #[binrw]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[brw(little, magic = b"GLOB")]
@@ -17,11 +18,13 @@ pub struct GLOB {
     pub data: Vec<u8>,
 }
 
+/// Parsed [GLOB] record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalVariable {
     pub header: RecordHeader,
     pub edid: String,
-    pub obnd: Option<ObjectBounds>,
+    pub kind: u8,
+    pub value: f32,
 }
 
 impl fmt::Display for GlobalVariable {
@@ -38,15 +41,16 @@ impl TryFrom<GLOB> for GlobalVariable {
         let mut cursor = Cursor::new(&data);
 
         let edid = EDID::read(&mut cursor)?.try_into()?;
-        let obnd = OBND::read(&mut cursor)
-            .ok()
-            .map(TryInto::try_into)
-            .transpose()?;
+        let kind = FNAM::read(&mut cursor)?.try_into()?;
+        let value = FLTV::read(&mut cursor)?.try_into()?;
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,
             edid,
-            obnd,
+            kind,
+            value,
         })
     }
 }

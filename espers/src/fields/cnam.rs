@@ -36,6 +36,17 @@ impl TryFrom<CNAM> for u32 {
     }
 }
 
+impl TryFrom<CNAM> for FormID {
+    type Error = Error;
+
+    fn try_from(raw: CNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
 impl TryFrom<CNAM> for String {
     type Error = Error;
 

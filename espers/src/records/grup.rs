@@ -1,3 +1,4 @@
+use crate::common::check_done_reading;
 use crate::error::Error;
 use crate::records::{RawRecord, Record};
 use binrw::{binrw, io::Cursor, until_eof, Endian};
@@ -27,6 +28,7 @@ pub struct GroupHeader {
     pub unknown: u32,
 }
 
+/// [GRUP](https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/GRUP) record
 #[binrw]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[brw(little, magic = b"GRUP")]
@@ -42,6 +44,7 @@ pub struct GRUP {
     pub localized: bool,
 }
 
+/// Parsed [GRUP] record
 #[derive(Debug)]
 pub struct Group {
     pub header: GroupHeader,
@@ -81,7 +84,18 @@ impl TryFrom<GRUP> for Group {
         let mut cursor = Cursor::new(&raw.data);
         let args = (raw.localized,);
         let recs: Vec<RawRecord> = until_eof(&mut cursor, Endian::Little, args)?;
-        let records: Vec<_> = recs.into_iter().map(TryInto::try_into).collect();
+        let records: Vec<_> = recs
+            .into_iter()
+            .map(|r| {
+                r.clone().try_into().map_err(|err| match err {
+                    Error::BinaryParseError(e) => Error::BinaryParseErrorExtra(e, r),
+                    Error::ExtraBytes(e) => Error::ExtraBytesRaw(e, r),
+                    other => other,
+                })
+            })
+            .collect();
+
+        check_done_reading(&mut cursor)?;
 
         Ok(Self {
             header: raw.header,

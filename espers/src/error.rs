@@ -1,3 +1,4 @@
+use crate::records::RawRecord;
 use std::io;
 use std::str::Utf8Error;
 use thiserror::Error;
@@ -10,6 +11,9 @@ pub enum Error {
     #[error("Binary parse error: {}", _0)]
     BinaryParseError(#[from] binrw::Error),
 
+    #[error("Binary parse error: {} - Record bytes: {:?}", _0, _1)]
+    BinaryParseErrorExtra(binrw::Error, RawRecord),
+
     #[error("UTF-8 parse error")]
     Utf8ParseError(#[from] Utf8Error),
 
@@ -21,6 +25,9 @@ pub enum Error {
 
     #[error("Extra bytes after parsing record ({:?})", _0)]
     ExtraBytes(Vec<u8>),
+
+    #[error("Extra bytes after parsing record ({:?}) - Raw: ({:?})", _0, _1)]
+    ExtraBytesRaw(Vec<u8>, RawRecord),
 
     #[error("Duplicate field encountered: ({})", _0)]
     DuplicateField(String),

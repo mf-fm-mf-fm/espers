@@ -1,4 +1,5 @@
 use super::{get_cursor, Flags, RecordHeader};
+use crate::common::check_done_reading;
 use crate::error::Error;
 use crate::fields::{
     DecalData, ObjectBounds, DNAM, DODT, EDID, OBND, TX00, TX01, TX02, TX03, TX04, TX05, TX06, TX07,
@@ -25,7 +26,9 @@ impl TryFrom<DNAM> for TypeFlags {
 
     fn try_from(raw: DNAM) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(&raw.data);
-        Ok(Self::read(&mut cursor)?)
+        let result = Self::read(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
 

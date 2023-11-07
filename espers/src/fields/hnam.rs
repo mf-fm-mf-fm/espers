@@ -1,4 +1,4 @@
-use crate::common::check_done_reading;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
 use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
@@ -14,6 +14,17 @@ pub struct HNAM {
 }
 
 impl TryFrom<HNAM> for f32 {
+    type Error = Error;
+
+    fn try_from(raw: HNAM) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
+    }
+}
+
+impl TryFrom<HNAM> for FormID {
     type Error = Error;
 
     fn try_from(raw: HNAM) -> Result<Self, Self::Error> {

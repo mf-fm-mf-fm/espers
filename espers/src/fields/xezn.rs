@@ -1,22 +1,25 @@
-use crate::common::FormID;
+use crate::common::{check_done_reading, FormID};
 use crate::error::Error;
-use binrw::{binrw, BinRead};
+use binrw::{binrw, io::Cursor, BinRead};
 use serde_derive::{Deserialize, Serialize};
-use std::io::Cursor;
 
 #[binrw]
 #[brw(little, magic = b"XEZN")]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct XEZN {
     pub size: u16,
+
     #[br(count = size)]
     pub data: Vec<u8>,
 }
 
-impl TryInto<FormID> for XEZN {
+impl TryFrom<XEZN> for FormID {
     type Error = Error;
 
-    fn try_into(self) -> Result<FormID, Error> {
-        Ok(FormID::read_le(&mut Cursor::new(&self.data))?)
+    fn try_from(raw: XEZN) -> Result<Self, Self::Error> {
+        let mut cursor = Cursor::new(&raw.data);
+        let result = Self::read_le(&mut cursor)?;
+        check_done_reading(&mut cursor)?;
+        Ok(result)
     }
 }
